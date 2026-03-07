@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-    url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 generator client {
   provider = "prisma-client-js"
@@ -59,7 +59,7 @@ model appointments {
 
 model patients {
   patient_id         String  @id @db.VarChar(20)
-  user_id            Int?    @unique @db.VarChar(20) // Link to users table
+  user_id            Int?    @unique // Link to users table
   full_name          String? @db.VarChar(100)
   email              String? @db.VarChar(150) // Added for session-based lookup
   age                Int?
