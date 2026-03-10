@@ -57,3 +57,179 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Global Dark Mode Overrides - Auto map light colors to dark */
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 224 71.4% 4.1%;
+  --card-foreground: 210 40% 98%;
+  --popover: 224 71.4% 4.1%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
+}
+
+/* Auto-dark mode for common hardcoded colors */
+.dark {
+  /* Backgrounds */
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: hsl(222.2 84% 4.9%);
+  color: hsl(210 40% 98%);
+}
+
+/* Hardcoded white backgrounds */
+.dark .bg-white {
+  background-color: hsl(224 71.4% 4.1%) !important;
+  border-color: hsl(217.2 32.6% 17.5%);
+}
+
+/* Hardcoded gray backgrounds */
+.dark .bg-gray-50 {
+  background-color: hsl(217.2 32.6% 12%) !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: hsl(217.2 32.6% 15%) !important;
+}
+
+.dark .bg-gray-200 {
+  background-color: hsl(217.2 32.6% 18%) !important;
+}
+
+.dark .bg-gray-300 {
+  background-color: hsl(217.2 32.6% 22%) !important;
+}
+
+/* Hardcoded text colors */
+.dark .text-gray-900 {
+  color: hsl(210 40% 98%) !important;
+}
+
+.dark .text-gray-800 {
+  color: hsl(210 40% 90%) !important;
+}
+
+.dark .text-gray-700 {
+  color: hsl(210 40% 80%) !important;
+}
+
+.dark .text-gray-600 {
+  color: hsl(215 20.2% 65.1%) !important;
+}
+
+.dark .text-gray-500 {
+  color: hsl(215 20.2% 55.1%) !important;
+}
+
+.dark .text-gray-400 {
+  color: hsl(215 20.2% 45.1%) !important;
+}
+
+/* Hardcoded border colors */
+.dark .border-gray-200 {
+  border-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .border-gray-300 {
+  border-color: hsl(217.2 32.6% 22%) !important;
+}
+
+/* Hardcoded hover backgrounds */
+.dark .hover\:bg-gray-50:hover {
+  background-color: hsl(217.2 32.6% 15%) !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: hsl(217.2 32.6% 18%) !important;
+}
+
+/* Card components */
+.dark .card,
+.dark [class*="card"] {
+  background-color: hsl(224 71.4% 4.1%);
+  border-color: hsl(217.2 32.6% 17.5%);
+}
+
+/* Tables */
+.dark table,
+.dark .table {
+  background-color: transparent;
+}
+
+.dark thead,
+.dark th {
+  background-color: hsl(217.2 32.6% 12%);
+  color: hsl(210 40% 80%);
+  border-color: hsl(217.2 32.6% 17.5%);
+}
+
+.dark td,
+.dark tbody tr {
+  border-color: hsl(217.2 32.6% 17.5%);
+  color: hsl(210 40% 90%);
+}
+
+.dark tbody tr:hover {
+  background-color: hsl(217.2 32.6% 12%);
+}
+
+/* Form inputs */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(217.2 32.6% 12%);
+  border-color: hsl(217.2 32.6% 17.5%);
+  color: hsl(210 40% 98%);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(215 20.2% 45.1%);
+}
+
+/* Buttons */
+.dark .bg-blue-50,
+.dark .bg-blue-100 {
+  background-color: hsl(217.2 32.6% 20%) !important;
+}
+
+/* Modal/Overlay backgrounds */
+.dark .bg-black\/50,
+.dark .bg-black\/40,
+.dark .bg-black\/60 {
+  background-color: hsl(222.2 84% 4.9% / 0.8) !important;
+}
+
+/* Scrollbar styling for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: hsl(217.2 32.6% 12%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(217.2 32.6% 30%);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(217.2 32.6% 40%);
+}

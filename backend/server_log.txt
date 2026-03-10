@@ -1,0 +1,26 @@
+🚀 Anti-Gravity Healthcare Server running on port 5000
+📊 Environment: development
+✅ Prisma database connected successfully
+[0mPOST /api/auth/login [33m401[0m 2183.018 ms - 102[0m
+[0mPOST /api/auth/login [32m200[0m 2839.023 ms - 270[0m
+[0mGET /api/doctors/stats [32m200[0m 3004.060 ms - 180[0m
+[0mGET /api/dashboard/stats [32m200[0m 3431.226 ms - 199[0m
+[0mGET /api/dashboard/revenue-data [32m200[0m 868.075 ms - 294[0m
+[0mGET /api/dashboard/appointments-data [32m200[0m 901.356 ms - 301[0m
+[0mGET /api/dashboard/stats [32m200[0m 1380.533 ms - 199[0m
+[0mGET /api/doctors/stats [32m200[0m 2737.995 ms - 180[0m
+[0mGET /api/dashboard/appointments-data [32m200[0m 901.928 ms - 301[0m
+[0mGET /api/dashboard/revenue-data [32m200[0m 900.317 ms - 294[0m
+[0mGET /api/dashboard/recent-appointments [32m200[0m 3425.234 ms - 699[0m
+[0mGET /api/dashboard/recent-appointments [32m200[0m 1448.031 ms - 699[0m
+[0mGET /api/auth/google [36m302[0m 1.899 ms - 0[0m
+Google OAuth callback triggered for: dwivedishivranjan@gmail.com
+Processing Google user: dwivedishivranjan@gmail.com
+Existing user found: ID: 1
+User exists, checking for patient record...
+Existing patient: PAT-1772098322843-680
+Patient record already exists: PAT-1772098322843-680
+Google OAuth processing complete for: dwivedishivranjan@gmail.com
+Google callback for user: dwivedishivranjan@gmail.com role: patient
+[0mGET /api/auth/google/callback?iss=https%3A%2F%2Faccounts.google.com&code=4%2F0AfrIepB3zuX7Qt_5__WY1d58hyJk0zLlT54pVJ0mczbcBG_X1HFNy0BSyQr5q_UH5a-N1A&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=1&prompt=none [36m302[0m 3512.624 ms - 378[0m
+^C

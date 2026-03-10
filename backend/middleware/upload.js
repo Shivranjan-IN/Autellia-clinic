@@ -1,9 +1,56 @@
 const multer = require('multer');
 const path = require('path');
 
-const storage = multer.diskStorage({
+// Use memory storage - files are stored in buffer (not disk)
+// This allows us to store file data directly in the database
+const storage = multer.memoryStorage();
+
+// Custom filename generator for memory storage
+const fileFilter = (req, file, cb) => {
+    // Allow PDF, images (jpeg, jpg, png, webp, gif), and Word documents (doc, docx)
+    const allowedMimes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    const allowedExtensions = /pdf|jpg|jpeg|png|doc|docx|gif|webp/;
+    const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedMimes.includes(file.mimetype);
+
+    console.log('File upload check:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        extname: path.extname(file.originalname).toLowerCase(),
+        extnameMatch: extname,
+        mimetypeMatch: mimetype
+    });
+
+    if (extname || mimetype) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only PDF, images (JPEG, PNG, WEBP, GIF), and Word documents are allowed'));
+    }
+};
+
+const upload = multer({
+    storage,
+    limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10485760 }, // 10MB default
+    fileFilter
+});
+
+// Export a function to get storage with custom filename
+// This is needed for profile photos which still use disk storage
+const getDiskStorage = () => multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, process.env.UPLOAD_PATH || './uploads');
+        // Use absolute path to ensure files are saved to the correct location
+        const uploadPath = path.join(__dirname, '..', 'uploads');
+        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -11,22 +58,14 @@ const storage = multer.diskStorage({
     }
 });
 
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (extname && mimetype) {
-        cb(null, true);
-    } else {
-        cb(new Error('Only images and documents are allowed in cargo bay'));
-    }
-};
-
-const upload = multer({
-    storage,
-    limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5242880 },
+// Export both upload (memory) and uploadDisk (disk) middleware
+const uploadDisk = multer({
+    storage: getDiskStorage(),
+    limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10485760 },
     fileFilter
 });
 
+// Export as both default and named exports
 module.exports = upload;
+module.exports.upload = upload;
+module.exports.uploadDisk = uploadDisk;

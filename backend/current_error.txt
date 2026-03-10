@@ -1,0 +1,4 @@
+🚀 Anti-Gravity Healthcare Server running on port 5000
+📊 Environment: development
+✅ Prisma database connected successfully
+^C

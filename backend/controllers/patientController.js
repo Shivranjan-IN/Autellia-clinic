@@ -1,5 +1,7 @@
 const Patient = require('../models/patientModel');
 const ResponseHandler = require('../utils/responseHandler');
+const prisma = require('../config/database');
+const { uploadToSupabase, deleteFromSupabase } = require('../utils/supabaseStorage');
 
 exports.createPatient = async (req, res, next) => {
     try {
@@ -183,10 +185,16 @@ exports.deletePatient = async (req, res, next) => {
 exports.uploadProfilePhoto = async (req, res, next) => {
     try {
         const userId = req.user.user_id;
+        console.log('uploadProfilePhoto - userId:', userId);
+        console.log('uploadProfilePhoto - email:', req.user.email);
+        
         let patient = await Patient.findByUserId(userId);
+        console.log('uploadProfilePhoto - patient by userId:', patient ? patient.patient_id : 'not found');
 
         if (!patient && req.user.email) {
+            console.log('uploadProfilePhoto - trying email:', req.user.email);
             patient = await Patient.findByEmail(req.user.email);
+            console.log('uploadProfilePhoto - patient by email:', patient ? patient.patient_id : 'not found');
         }
 
         if (!patient) {
@@ -197,12 +205,70 @@ exports.uploadProfilePhoto = async (req, res, next) => {
             return ResponseHandler.badRequest(res, 'No file uploaded');
         }
 
-        const photoUrl = `/uploads/${req.file.filename}`;
-        const updated = await Patient.update(patient.patient_id, { profile_photo_url: photoUrl });
+        console.log('uploadProfilePhoto - file:', req.file);
+        
+        // Upload to Supabase storage
+        const uploadResult = await uploadToSupabase(
+            req.file.buffer,
+            req.file.originalname,
+            'patients/photos'
+        );
 
-        ResponseHandler.updated(res, updated, 'Profile photo updated successfully');
+        if (!uploadResult.success) {
+            console.error('Supabase upload failed:', uploadResult.error);
+            return ResponseHandler.serverError(res, 'Failed to upload file to storage');
+        }
+
+        // Delete old photo if exists
+        if (patient.profile_photo_url) {
+            await deleteFromSupabase(patient.profile_photo_url);
+        }
+
+        // Update patient with the new photo URL using Prisma
+        await prisma.patients.update({
+            where: { patient_id: patient.patient_id },
+            data: {
+                profile_photo_url: uploadResult.url,
+                profile_photo_mime_type: req.file.mimetype
+            }
+        });
+
+        console.log('uploadProfilePhoto - updated successfully');
+
+        ResponseHandler.updated(res, {
+            patient_id: patient.patient_id,
+            profile_photo_mime_type: req.file.mimetype,
+            profile_photo_url: uploadResult.url
+        }, 'Profile photo updated successfully');
     } catch (error) {
         console.error('Error uploading profile photo:', error);
         next(error);
     }
 };
+
+// Get patient profile photo - redirect to Supabase URL
+exports.getProfilePhoto = async (req, res, next) => {
+    try {
+        const { patientId } = req.params;
+        
+        // Get the profile photo URL from database
+        const patient = await prisma.patients.findUnique({
+            where: { patient_id: patientId },
+            select: {
+                profile_photo_url: true,
+                profile_photo_mime_type: true
+            }
+        });
+        
+        if (!patient || !patient.profile_photo_url) {
+            return ResponseHandler.notFound(res, 'Profile photo not found');
+        }
+
+        // Redirect to the Supabase URL
+        res.redirect(patient.profile_photo_url);
+    } catch (error) {
+        console.error('Error getting profile photo:', error);
+        next(error);
+    }
+};
+

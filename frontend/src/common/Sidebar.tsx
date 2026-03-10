@@ -56,15 +56,15 @@ export function Sidebar({ currentPage, onPageChange, userRole }: SidebarProps) {
   const accessibleItems = menuItems.filter(item => item.roles.includes(userRole));
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-6 border-b border-gray-200">
+    <div className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col">
+      <div className="p-6 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 p-2 rounded-lg">
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-lg text-gray-900">Elinic</h1>
-            <p className="text-xs text-gray-500">Healthcare Platform</p>
+            <h1 className="font-bold text-lg text-gray-900 dark:text-white">Elinic</h1>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Healthcare Platform</p>
           </div>
         </div>
       </div>
@@ -79,8 +79,8 @@ export function Sidebar({ currentPage, onPageChange, userRole }: SidebarProps) {
               key={item.id}
               onClick={() => onPageChange(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-50'
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                : 'text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800'
                 }`}
             >
               <Icon className="w-5 h-5" />

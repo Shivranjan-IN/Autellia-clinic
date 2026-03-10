@@ -1,0 +1,71 @@
+🚀 Anti-Gravity Healthcare Server running on port 5000
+📊 Environment: development
+✅ Prisma database connected successfully
+(node:14320) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[0mGET /api/auth/me [33m401[0m 1282.709 ms - 110[0m
+[0mGET /api/auth/me [33m401[0m 737.456 ms - 110[0m
+[0mGET /api/clinics/reports [33m401[0m 712.633 ms - 110[0m
+[0mGET /api/clinics/queue [33m401[0m 713.418 ms - 110[0m
+[0mGET /api/clinics/reports [33m401[0m 705.012 ms - 110[0m
+[0mGET /api/clinics/queue [33m401[0m 716.445 ms - 110[0m
+[0mGET /api/clinics/patients/today [33m401[0m 715.953 ms - 110[0m
+[0mGET /api/clinics/patients/today [33m401[0m 754.079 ms - 110[0m
+[0mGET /api/clinics/profile [33m401[0m 1061.278 ms - 110[0m
+[0mGET /api/clinics/profile [33m401[0m 764.183 ms - 110[0m
+[0mGET /api/clinics/reports [33m401[0m 763.714 ms - 110[0m
+[0mGET /api/clinics/reports [33m401[0m 685.616 ms - 110[0m
+[0mGET /api/clinics/doctors [33m401[0m 686.178 ms - 110[0m
+[0mGET /api/clinics/appointments [33m401[0m 719.053 ms - 110[0m
+[0mGET /api/clinics/appointments [33m401[0m 1624.046 ms - 110[0m
+[0mGET /api/clinics/doctors [33m401[0m 1659.923 ms - 110[0m
+[0mGET /api/clinics/patients/today [33m401[0m 1113.026 ms - 110[0m
+[0mGET /api/clinics/appointments [33m401[0m 684.547 ms - 110[0m
+[0mGET /api/clinics/patients/today [33m401[0m 822.335 ms - 110[0m
+[0mGET /api/clinics/queue [33m401[0m 747.751 ms - 110[0m
+[0mGET /api/clinics/reports [33m401[0m 752.969 ms - 110[0m
+[0mGET /api/clinics/appointments [33m401[0m 1573.042 ms - 110[0m
+Error: PrismaClientKnownRequestError: 
+Invalid `prisma.users.findUnique()` invocation in
+c:\Intern\ai-clinic\backend\models\userModel.js:18:35
+
+  15 }
+  16 
+  17 static async findByEmail(email) {
+→ 18     return await prisma.users.findUnique(
+Error opening a TLS connection: self-signed certificate in certificate chain
+    at zr.handleRequestError (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:69:8286)
+    at zr.handleAndLogRequestError (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:69:7581)
+    at zr.request (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:69:7288)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:79:5816)
+    at async User.findByEmail (c:\Intern\ai-clinic\backend\models\userModel.js:18:16)
+    at async exports.login (c:\Intern\ai-clinic\backend\controllers\authController.js:154:18) {
+  code: 'P1011',
+  meta: {
+    modelName: 'users',
+    driverAdapterError: DriverAdapterError: TlsConnectionError
+        at PrismaPgAdapter.onError (c:\Intern\ai-clinic\backend\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (c:\Intern\ai-clinic\backend\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (c:\Intern\ai-clinic\backend\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:15:44517)
+        at async e.interpretNode (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:15:44961)
+        at async e.interpretNode (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:15:46181)
+        at async e.run (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:15:43231)
+        at async e.execute (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:61:815)
+        at async jt.request (c:\Intern\ai-clinic\backend\node_modules\.prisma\client\runtime\client.js:62:2327) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.4.2'
+}
+[0mPOST /api/auth/login [31m500[0m 1214.916 ms - 379[0m
+^C

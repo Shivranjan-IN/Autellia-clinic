@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const { upload } = require('../middleware/upload');
 
 // User registration
 router.post('/register', authController.register);
 
-// Doctor registration
+// Doctor registration - use memory upload for storing files in database
 router.post('/register/doctor', upload.fields([
   { name: 'mciReg', maxCount: 1 },
   { name: 'degree', maxCount: 1 },
@@ -16,8 +16,13 @@ router.post('/register/doctor', upload.fields([
   { name: 'signature', maxCount: 1 }
 ]), authController.registerDoctor);
 
-// Clinic registration
-router.post('/register/clinic', authController.registerClinic);
+// Clinic registration - use memory upload for storing files in Supabase
+router.post('/register/clinic', upload.fields([
+  { name: 'registration', maxCount: 1 },
+  { name: 'license', maxCount: 1 },
+  { name: 'idProof', maxCount: 1 },
+  { name: 'gst', maxCount: 1 }
+]), authController.registerClinic);
 
 // Email/password login
 router.post('/login', authController.login);

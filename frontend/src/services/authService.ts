@@ -183,13 +183,30 @@ export class AuthService {
     }
 
     // Sign up clinic
-    async signUpClinic(data: ClinicRegistrationData, extraData: any, password: string) {
+    async signUpClinic(data: ClinicRegistrationData, extraData: any, password: string, files?: Record<string, File>) {
+        const formData = new FormData();
+
+        // Add all data fields
+        Object.entries({ ...data, ...extraData, password }).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                if (Array.isArray(value)) {
+                    formData.append(key, JSON.stringify(value));
+                } else {
+                    formData.append(key, String(value));
+                }
+            }
+        });
+
+        // Add files if provided
+        if (files) {
+            Object.entries(files).forEach(([key, file]) => {
+                formData.append(key, file);
+            });
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/auth/register/clinic`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ...data, ...extraData, password }),
+            body: formData,
         });
 
         if (!response.ok) {

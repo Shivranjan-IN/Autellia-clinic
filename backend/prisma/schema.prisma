@@ -1,11 +1,12 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
   engineType = "library"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+ 
 }
 
 model ai_action_logs {
@@ -80,7 +81,9 @@ model patients {
   medical_history            String?
   insurance_id               String?                      @db.VarChar
   user_id                    Int?                         @unique
+  // Store profile photo URL from Supabase
   profile_photo_url          String?                      @db.VarChar
+  profile_photo_mime_type   String?                      @db.VarChar
   doctor_id                  Int?
   created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
   updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
@@ -143,6 +146,7 @@ model clinics {
   email                  String                  @unique @db.VarChar
   mobile                 String?                 @unique @db.Char(10)
   clinic_booking_modes   clinic_booking_modes[]
+  clinic_documents       clinic_document[]
   clinic_facilities      clinic_facilities[]
   clinic_payment_modes   clinic_payment_modes[]
   clinic_services        clinic_services[]
@@ -164,27 +168,28 @@ model doctors {
   user_id                    Int?                         @unique
   date_of_birth              DateTime?                    @db.Date
   updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
-  profile_photo_url          String?
+  // Store profile photo URL from Supabase
+  profile_photo_url         String?
   mobile_verified            Boolean?                     @default(false)
   email_verified             Boolean?                     @default(false)
-  medical_council_name       String?                      @db.VarChar(150)
+  medical_council_name       String?                       @db.VarChar(150)
   registration_year          Int?
   qualifications             String?
-  university_name            String?                      @db.VarChar(150)
+  university_name            String?                       @db.VarChar(150)
   graduation_year            Int?
   experience_years           Int?
   bio                        String?
-  bank_account_name          String?                      @db.VarChar(150)
-  bank_account_number        String?                      @db.VarChar(50)
-  ifsc_code                  String?                      @db.VarChar(20)
-  pan_number                 String?                      @db.Char(10)
-  gstin                      String?                      @db.Char(15)
-  terms_accepted             Boolean?                     @default(false)
-  declaration_accepted       Boolean?                     @default(false)
-  verification_status        String?                      @default("PENDING") @db.VarChar(30)
-  gender                     String?                      @db.VarChar
-  email                      String                       @unique @db.VarChar
-  mobile                     String?                      @unique @db.Char(10)
+  bank_account_name          String?                       @db.VarChar(150)
+  bank_account_number        String?                       @db.VarChar(50)
+  ifsc_code                  String?                       @db.VarChar(20)
+  pan_number                 String?                       @db.Char(10)
+  gstin                      String?                       @db.Char(15)
+  terms_accepted             Boolean?                      @default(false)
+  declaration_accepted       Boolean?                      @default(false)
+  verification_status        String?                       @default("PENDING") @db.VarChar(30)
+  gender                     String?                       @db.VarChar
+  email                      String                        @unique @db.VarChar
+  mobile                     String?                       @unique @db.Char(10)
   appointments               appointments[]
   doctor_clinic_mapping      doctor_clinic_mapping[]
   doctor_consultation_modes  doctor_consultation_modes[]
@@ -200,7 +205,7 @@ model doctors {
   doctor_specializations     doctor_specializations[]
   doctor_time_slots          doctor_time_slots[]
   doctor_verification        doctor_verification?
-  users                      users?                       @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_doctors_user")
+  users                      users?                        @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_doctors_user")
   lab_orders                 lab_orders[]
   medical_records            medical_records[]
   prescriptions              prescriptions[]
@@ -305,7 +310,10 @@ model patient_documents {
   id            Int       @id @default(autoincrement())
   patient_id    String?   @db.VarChar
   document_type String?   @db.VarChar
-  file_url      String?
+  // Store file URL from Supabase instead of binary data
+  file_url      String?   @db.VarChar
+  mime_type     String?   @db.VarChar
+  file_size     Int?      // Store file size in bytes
   uploaded_at   DateTime? @default(now()) @db.Timestamp(6)
   file_name     String?   @db.VarChar
   patient       patients? @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_patient_documents_patient")
@@ -316,11 +324,26 @@ model patient_documents {
 model external_prescriptions {
   id          Int       @id @default(autoincrement())
   patient_id  String?   @db.VarChar
-  file_url    String?
+   file_url   String?
   file_type   String?   @db.VarChar
   notes       String?
   uploaded_at DateTime? @default(now()) @db.Timestamp(6)
   patient     patients? @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_external_prescriptions_patient")
+}
+
+model clinic_document {
+  id            Int       @id @default(autoincrement())
+  clinic_id     Int?
+  document_type String?   @db.VarChar
+  // Store file URL from Supabase instead of binary data
+  file_url      String?   @db.VarChar
+  mime_type     String?   @db.VarChar
+  file_size     Int?      // Store file size in bytes
+  uploaded_at   DateTime? @default(now()) @db.Timestamp(6)
+  file_name     String?   @db.VarChar
+  clinic        clinics?  @relation(fields: [clinic_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_clinic_documents_clinic")
+
+  @@index([clinic_id], map: "idx_clinic_documents_clinic")
 }
 
 model clinic_services {
@@ -391,8 +414,10 @@ model doctor_documents {
   id            Int       @id @default(autoincrement())
   doctor_id     Int
   document_type String    @db.VarChar
-  file_url      String
-  file_type     String?   @db.VarChar
+  // Store file URL from Supabase instead of binary data
+  file_url      String?
+  mime_type     String?
+  file_size     Int?
   uploaded_at   DateTime? @default(now()) @db.Timestamp(6)
   doctor        doctors   @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_doctor_documents_doctor")
 }

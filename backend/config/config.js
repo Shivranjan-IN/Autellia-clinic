@@ -6,4 +6,8 @@ module.exports = {
     corsOrigin: process.env.CORS_ORIGIN,
     uploadPath: process.env.UPLOAD_PATH || './uploads',
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE) || 5242880,
+    // Supabase Storage Configuration
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseKey: process.env.SUPABASE_KEY,
+    supabaseBucket: process.env.SUPABASE_BUCKET || 'clinic-files',
 };

@@ -27,6 +27,7 @@ const cartRoutes = require('./routes/cartRoutes');
 const bookmarkRoutes = require('./routes/bookmarkRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const documentRoutes = require('./routes/documentRoutes');
+const clinicDocumentRoutes = require('./routes/clinicDocumentRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
 
 const app = express();
@@ -78,6 +79,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/clinic-documents', clinicDocumentRoutes);
 app.use('/api/devices', deviceRoutes);
 
 // Error handling

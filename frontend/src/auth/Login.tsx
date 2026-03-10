@@ -115,17 +115,17 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-pink-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
       <Toaster />
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
           <div className="flex items-center gap-4 mb-6">
-            <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <button onClick={onBack} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors">
               <Building2 className="w-6 h-6 text-pink-600" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Elinic Healthcare</h1>
-              <p className="text-sm text-gray-600">Clinic Management Platform</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Elinic Healthcare</h1>
+              <p className="text-sm text-gray-600 dark:text-slate-400">Clinic Management Platform</p>
             </div>
           </div>
 
@@ -176,7 +176,7 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+                  <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
                     {error}
                   </div>
                 )}
@@ -191,10 +191,10 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-200"></span>
+                    <span className="w-full border-t border-gray-200 dark:border-slate-600"></span>
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                    <span className="bg-white dark:bg-slate-800 px-2 text-gray-500 dark:text-slate-400">Or continue with</span>
                   </div>
                 </div>
 
@@ -202,7 +202,7 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
                   type="button"
                   onClick={handleGoogleLogin}
                   variant="outline"
-                  className="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+                  className="w-full bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600 flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

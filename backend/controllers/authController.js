@@ -7,6 +7,7 @@ const Clinic = require('../models/clinicModel');
 const ResponseHandler = require('../utils/responseHandler');
 const { validatePAN, validateIFSC, validateGSTIN } = require('../utils/validators');
 const prisma = require('../config/database');
+const { uploadToSupabase, deleteFromSupabase } = require('../utils/supabaseStorage');
 
 exports.googleAuth = (req, res, next) => {
   console.log('Google auth route hit');
@@ -280,6 +281,35 @@ exports.registerDoctor = async (req, res, next) => {
       await Doctor.insertConsultationModes(newDoctor.id, consultationModes);
     }
 
+    // Store uploaded documents in Supabase and save URL in database
+    const documentFields = ['mciReg', 'degree', 'idProof', 'clinicLetter', 'signature'];
+    for (const fieldName of documentFields) {
+      if (req.files && req.files[fieldName] && req.files[fieldName][0]) {
+        const file = req.files[fieldName][0];
+        
+        // Upload to Supabase
+        const uploadResult = await uploadToSupabase(
+          file.buffer,
+          file.originalname,
+          'doctors/documents'
+        );
+
+        if (uploadResult.success) {
+          await prisma.doctor_documents.create({
+            data: {
+              doctor_id: newDoctor.id,
+              document_type: fieldName,
+              file_url: uploadResult.url,
+              mime_type: file.mimetype,
+              file_size: file.size
+            }
+          });
+        } else {
+          console.error(`Failed to upload ${fieldName} to Supabase:`, uploadResult.error);
+        }
+      }
+    }
+
     // Mirror financial data to verification_details
     await prisma.verification_details.create({
       data: {
@@ -407,6 +437,53 @@ exports.registerClinic = async (req, res, next) => {
     if (facilities) await Clinic.insertFacilities(newClinic.id, facilities);
     if (paymentModes) await Clinic.insertPaymentModes(newClinic.id, paymentModes);
     if (bookingModes) await Clinic.insertBookingModes(newClinic.id, bookingModes);
+
+    // Store uploaded documents in Supabase and save URL in database
+    // Frontend sends: registration, license, idProof, gst
+    const documentFieldMap = {
+      'registration': 'registrationDocument',
+      'license': 'licenseDocument', 
+      'idProof': 'idProof',
+      'gst': 'gstCertificate'
+    };
+    
+    for (const [fieldName, mappedName] of Object.entries(documentFieldMap)) {
+      if (req.files && req.files[fieldName] && req.files[fieldName][0]) {
+        const file = req.files[fieldName][0];
+        
+        console.log(`Processing uploaded file: ${fieldName}`, {
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size
+        });
+        
+        // Upload to Supabase
+        const uploadResult = await uploadToSupabase(
+          file.buffer,
+          file.originalname,
+          'clinic/documents'
+        );
+
+        if (uploadResult.success) {
+          console.log(`✅ ${fieldName} uploaded successfully:`, uploadResult.url);
+          
+          // Save to clinic_document table
+          await prisma.clinic_document.create({
+            data: {
+              clinic_id: newClinic.id,
+              document_type: mappedName,
+              file_url: uploadResult.url,
+              mime_type: file.mimetype,
+              file_size: file.size,
+              file_name: file.originalname
+            }
+          });
+          console.log(`✅ ${fieldName} saved to database`);
+        } else {
+          console.error(`❌ Failed to upload ${fieldName} to Supabase:`, uploadResult.error);
+        }
+      }
+    }
 
     // Mirror financial data to verification_details
     await prisma.verification_details.create({

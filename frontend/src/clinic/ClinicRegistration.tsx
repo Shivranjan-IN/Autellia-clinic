@@ -312,7 +312,7 @@ export function ClinicRegistration({ onBack }: ClinicRegistrationProps) {
         facilities: selectedFacilities,
         paymentModes: selectedPaymentModes,
         bookingModes: selectedBookingModes
-      }, formData.password);
+      }, formData.password, files);
 
       toast.success('Registration successful!');
       onBack();
