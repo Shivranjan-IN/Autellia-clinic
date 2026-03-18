@@ -15,11 +15,13 @@ import {
 } from 'lucide-react';
 
 interface ClinicProfileProps {
-    userRole: UserRole;
+    userRole?: UserRole;
     user?: any;
+    onBack?: () => void;
 }
 
-export function ClinicProfile({ userRole }: ClinicProfileProps) {
+export function ClinicProfile({ userRole, user, onBack }: ClinicProfileProps) {
+    const effectiveRole = userRole || user?.role;
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export function ClinicProfile({ userRole }: ClinicProfileProps) {
                     <h1 className="text-2xl font-bold text-gray-900">Clinic Profile & Legal Details</h1>
                     <p className="text-gray-600">Manage clinic information and registration</p>
                 </div>
-                {userRole === 'clinic' && (
+                {effectiveRole === 'clinic' && (
                     <button
                         onClick={() => isEditing ? handleSave() : setIsEditing(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -179,8 +181,8 @@ export function ClinicProfile({ userRole }: ClinicProfileProps) {
                         <div className="col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
                             <textarea
-                                value={clinic.address}
-                                onChange={(e) => setClinic({ ...clinic, address: e.target.value })}
+                                value={clinic.address?.address || ''}
+                                onChange={(e) => setClinic({ ...clinic, address: { ...clinic.address, address_id: clinic.address?.address_id || 0, address: e.target.value } })}
                                 disabled={!isEditing}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-50"
                                 rows={2}

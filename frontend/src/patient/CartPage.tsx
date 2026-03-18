@@ -6,10 +6,10 @@ import {
     Plus,
     ArrowLeft,
     CreditCard,
-    Table as FileText,
     Truck,
     Shield
 } from 'lucide-react';
+import { ImageWithFallback } from "../public/figma/ImageWithFallback";
 import { Card, CardContent, CardHeader, CardTitle } from '../common/ui/card';
 import { Button } from '../common/ui/button';
 import { Input } from '../common/ui/input';
@@ -84,8 +84,9 @@ export function CartPage({ patient, onNavigate }: { patient: PatientUser; onNavi
     };
 
     const subtotal = cartItems.reduce((sum: number, item: any) => sum + (parseFloat(item.medicine?.mrp) || 0) * item.quantity, 0);
+    const tax = subtotal * 0.05; // 5% GST
     const deliveryCharge = subtotal >= 500 ? 0 : 50;
-    const total = subtotal + deliveryCharge;
+    const total = subtotal + tax + deliveryCharge;
 
     if (loading) {
         return <div className="p-6 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div></div>;
@@ -118,8 +119,12 @@ export function CartPage({ patient, onNavigate }: { patient: PatientUser; onNavi
                         {cartItems.map((item) => (
                             <Card key={item.id} className="border-pink-50">
                                 <CardContent className="p-4 flex gap-4">
-                                    <div className="size-20 bg-pink-50 rounded-lg flex items-center justify-center shrink-0">
-                                        <FileText className="size-8 text-pink-600" />
+                                    <div className="size-20 bg-pink-50 rounded-lg overflow-hidden shrink-0">
+                                        <ImageWithFallback
+                                            src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80"
+                                            alt={item.medicine?.medicine_name}
+                                            className="w-full h-full object-cover"
+                                        />
                                     </div>
                                     <div className="flex-1">
                                         <div className="flex justify-between">
@@ -177,6 +182,10 @@ export function CartPage({ patient, onNavigate }: { patient: PatientUser; onNavi
                                     <div className="flex justify-between text-gray-600">
                                         <span>Subtotal</span>
                                         <span>₹{subtotal}</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Tax (GST 5%)</span>
+                                        <span>₹{tax.toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-gray-600">
                                         <span>Delivery Charges</span>

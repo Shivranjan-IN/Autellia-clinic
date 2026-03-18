@@ -27,22 +27,35 @@ passport.use(
 
         console.log('Processing Google user:', email);
 
-        // First, try to find user by email
-        let user = await prisma.users.findUnique({
-          where: { email: email }
+        // First, try to find user by email via the emails table
+        const emailRecord = await prisma.emails.findUnique({
+          where: { email: email },
+          include: { users: true }
         });
+        let user = emailRecord ? emailRecord.users : null;
 
         console.log('Existing user found:', user ? `ID: ${user.user_id}` : 'No');
 
         if (!user) {
           console.log('Creating new user...');
-          // Create new user
+
+          // Look up the 'patient' role to connect via FK
+          const patientRole = await prisma.roles.findFirst({
+            where: { role_name: 'patient' }
+          });
+
+          // Create new user with nested email record
           user = await prisma.users.create({
             data: {
               full_name: fullName,
-              email: email,
               password_hash: await bcrypt.hash(Math.random().toString(36), 10),
-              role: 'patient'
+              ...(patientRole ? { roles: { connect: { role_id: patientRole.role_id } } } : {}),
+              emails: {
+                create: {
+                  email: email,
+                  is_primary: true
+                }
+              }
             }
           });
           console.log('User created with ID:', user.user_id);
@@ -93,6 +106,7 @@ passport.use(
         }
 
         console.log('Google OAuth processing complete for:', email);
+        user.email = email;
         return done(null, user);
       } catch (error) {
         console.error('Passport strategy error:', error);

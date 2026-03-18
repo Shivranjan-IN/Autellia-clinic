@@ -125,9 +125,9 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   const renderContent = () => {
     switch (currentView) {
       case 'profile':
-        return <ClinicProfile userRole={user.role} />;
+        return <ClinicProfile user={user} onBack={() => setCurrentView('dashboard')} />;
       case 'patients':
-        return <PatientManagement userRole={user.role} />;
+        return <PatientManagement user={user} onBack={() => setCurrentView('dashboard')} />;
       case 'appointments':
         return <AppointmentManagement userRole={user.role} />;
       case 'queue':

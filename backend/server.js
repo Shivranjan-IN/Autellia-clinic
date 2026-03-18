@@ -29,6 +29,8 @@ const reminderRoutes = require('./routes/reminderRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const clinicDocumentRoutes = require('./routes/clinicDocumentRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
+const labRoutes = require('./routes/labRoutes');
+const prescriptionRoutes = require('./routes/prescriptionRoutes');
 
 const app = express();
 
@@ -81,6 +83,9 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/clinic-documents', clinicDocumentRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/labs', labRoutes);
+app.use('/api/lab', labRoutes); // Also mount at /api/lab for frontend compatibility
+app.use('/api/prescriptions', prescriptionRoutes);
 
 // Error handling
 app.use(errorHandler);

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { UserRole } from '../common/types';
 import {
-  Search, Plus, Filter, Download, Eye, DollarSign,
-  CreditCard, Wallet, TrendingUp, Sparkles, X,
-  ChevronRight, Calendar, User, Activity, AlertCircle
+  Search, Plus, Download, Eye, DollarSign,
+  CreditCard, Wallet, TrendingUp, Sparkles, X
 } from 'lucide-react';
 import { clinicService } from '../services/clinicService';
 import { toast } from 'sonner';
@@ -37,9 +36,6 @@ export function BillingPayments({ userRole }: BillingPaymentsProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
-  const [patients, setPatients] = useState<any[]>([]);
-  const [appointments, setAppointments] = useState<any[]>([]);
-
   const [formData, setFormData] = useState({
     patient_id: '',
     appointment_id: '',
@@ -49,6 +45,10 @@ export function BillingPayments({ userRole }: BillingPaymentsProps) {
     paid_amount: 0
   });
 
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [patientSearchResults, setPatientSearchResults] = useState<any[]>([]);
+  const [isSearchingPatients, setIsSearchingPatients] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -56,14 +56,8 @@ export function BillingPayments({ userRole }: BillingPaymentsProps) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [billingData, patientsData, appointmentsData] = await Promise.all([
-        clinicService.getBilling(),
-        clinicService.getPatients(),
-        clinicService.getAppointments()
-      ]);
+      const billingData = await clinicService.getBilling();
       setInvoices(billingData);
-      setPatients(patientsData);
-      setAppointments(appointmentsData);
     } catch (error) {
       toast.error('Financial data synchronization failed');
     } finally {
@@ -116,6 +110,58 @@ export function BillingPayments({ userRole }: BillingPaymentsProps) {
     const newServices = [...formData.services];
     newServices[index] = { ...newServices[index], [field]: value };
     setFormData({ ...formData, services: newServices });
+  };
+
+  const handlePatientSearch = async (query: string) => {
+    setPatientSearchQuery(query);
+    if (query.length < 3) {
+      setPatientSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearchingPatients(true);
+      const results = await clinicService.searchBillingPatients(query);
+      setPatientSearchResults(results);
+    } catch (error) {
+      console.error('Patient search failed:', error);
+    } finally {
+      setIsSearchingPatients(false);
+    }
+  };
+
+  const selectPatient = (patient: any) => {
+    const prescription = patient.latest_prescription;
+    const services: any[] = [];
+
+    if (prescription) {
+      // Add medicines as service items
+      prescription.medicines?.forEach((m: any) => {
+        services.push({
+          name: m.medicines?.medicine_name || 'Medicine',
+          quantity: parseInt(m.duration) || 1, // Using duration as quantity if available, else 1
+          rate: parseFloat(m.medicines?.mrp) || 0
+        });
+      });
+
+      // Add lab tests if any
+      prescription.lab_tests?.forEach((lt: any) => {
+        services.push({
+          name: lt.lab_test_types?.test_name || 'Lab Test',
+          quantity: 1,
+          rate: parseFloat(lt.lab_test_types?.price) || 0
+        });
+      });
+    }
+
+    setFormData({
+      ...formData,
+      patient_id: patient.patient_id,
+      appointment_id: prescription?.appointment_id || '',
+      services: services.length > 0 ? services : [{ name: '', quantity: 1, rate: 0 }]
+    });
+    setPatientSearchQuery(patient.full_name);
+    setPatientSearchResults([]);
   };
 
   const filteredInvoices = invoices.filter(invoice =>
@@ -347,27 +393,51 @@ export function BillingPayments({ userRole }: BillingPaymentsProps) {
 
             <form onSubmit={handleCreateInvoice} className="p-8 space-y-6">
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Target Patient</label>
-                  <select
-                    value={formData.patient_id}
-                    onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 text-sm font-bold"
-                  >
-                    <option value="">Select Target...</option>
-                    {patients.map(p => <option key={p.patient_id} value={p.patient_id}>{p.full_name} ({p.patient_id})</option>)}
-                  </select>
+                <div className="space-y-2 relative">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Find Patient (Email/Mobile)</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={patientSearchQuery}
+                      onChange={(e) => handlePatientSearch(e.target.value)}
+                      placeholder="Search to populate prescription..."
+                      className="w-full pl-10 pr-10 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 text-sm font-bold"
+                    />
+                    {isSearchingPatients && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+                  {patientSearchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-[60] max-h-60 overflow-y-auto">
+                      {patientSearchResults.map((p) => (
+                        <button
+                          key={p.patient_id}
+                          type="button"
+                          onClick={() => selectPatient(p)}
+                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex flex-col border-b border-gray-50 last:border-0"
+                        >
+                          <span className="text-sm font-bold text-gray-900">{p.full_name}</span>
+                          <span className="text-[10px] text-gray-500">{p.email || p.phone}</span>
+                          {p.latest_prescription && (
+                            <span className="text-[9px] text-green-600 font-bold uppercase mt-1">Prescription Found (Dr. {p.latest_prescription.doctor?.full_name})</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Linked Appointment</label>
-                  <select
-                    value={formData.appointment_id}
-                    onChange={(e) => setFormData({ ...formData, appointment_id: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 text-sm font-bold"
-                  >
-                    <option value="">Select Link...</option>
-                    {appointments.map(a => <option key={a.appointment_id} value={a.appointment_id}>{a.appointment_id} - {a.patient?.full_name}</option>)}
-                  </select>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Patient ID (Auto)</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={formData.patient_id}
+                    placeholder="Patient ID"
+                    className="w-full px-4 py-3 bg-gray-100 border-none rounded-xl text-sm font-bold text-gray-500"
+                  />
                 </div>
               </div>
 

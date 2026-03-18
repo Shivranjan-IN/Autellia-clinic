@@ -8,7 +8,10 @@ import {
   Pill,
   Brain,
   Upload,
-  Trash2
+  Trash2,
+  Download,
+  Activity,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../common/ui/card';
 import { Button } from '../common/ui/button';
@@ -20,22 +23,28 @@ import type { PatientUser } from './PatientPortal';
 export function MyPrescriptions({ patient }: { patient: PatientUser }) {
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
-  const [_loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAIExplanation, setShowAIExplanation] = useState<string | null>(null);
   const [aiContent, setAIContent] = useState<string | null>(null);
   const [aiLoading, setAILoading] = useState(false);
-  const [_selectedLanguage] = useState('English');
+  const [uploading, setUploading] = useState(false);
+  const [selectedLanguage] = useState('English');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [medicineSearch, setMedicineSearch] = useState('');
 
   useEffect(() => {
-    fetchPrescriptions();
-    fetchDocuments();
-  }, []);
+    if (patient.id) {
+      fetchPrescriptions();
+      fetchDocuments();
+    }
+  }, [patient.id]);
 
   const fetchPrescriptions = async () => {
     try {
-      setPrescriptions((patient as any).prescriptions || []);
+      const data = await patientService.getMyPrescriptions();
+      setPrescriptions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching prescriptions:', error);
     }
@@ -43,21 +52,33 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
 
   const fetchDocuments = async () => {
     try {
-      setLoading(true);
       const data = await patientService.getMyDocuments();
       setDocuments(data);
     } catch (error) {
       console.error('Error fetching documents:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const filteredPrescriptions = prescriptions.filter((rx: any) =>
-    rx.prescription_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rx.doctor?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rx.diagnosis?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPrescriptions = prescriptions.filter((rx: any) => {
+    // 1. Text Search (ID, Doctor, Diagnosis)
+    const matchesSearch = 
+      rx.prescription_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      rx.doctor?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      rx.diagnosis?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // 2. Medicine Search
+    const matchesMedicine = !medicineSearch || rx.medicines?.some((m: any) => 
+      m.medicine_name?.toLowerCase().includes(medicineSearch.toLowerCase())
+    );
+
+    // 3. Date Range
+    const rxDate = new Date(rx.created_at);
+    const matchesDate = 
+      (!dateFrom || rxDate >= new Date(dateFrom)) &&
+      (!dateTo || rxDate <= new Date(dateTo));
+
+    return matchesSearch && matchesMedicine && matchesDate;
+  });
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -67,7 +88,7 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
     try {
       setAILoading(true);
       setShowAIExplanation(rxId);
-      const explanation = await patientService.explainPrescription(prescriptionText, _selectedLanguage);
+      const explanation = await patientService.explainPrescription(prescriptionText, selectedLanguage);
       setAIContent(explanation);
     } catch (error) {
       console.error('AI Explanation Error:', error);
@@ -97,15 +118,62 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Search */}
-          <div className="relative">
-            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-            <Input
-              placeholder="Search prescriptions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          {/* Filters */}
+          <div className="bg-white p-4 rounded-xl border border-pink-100 shadow-sm space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                <Input
+                  placeholder="ID, Doctor, or Diagnosis..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="relative">
+                <Pill className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                <Input
+                  placeholder="Filter by medicine name..."
+                  value={medicineSearch}
+                  onChange={(e) => setMedicineSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              <div className="flex items-center gap-2 flex-1 w-full">
+                <span className="text-sm text-gray-500 min-w-12">From:</span>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-1 w-full">
+                <span className="text-sm text-gray-500 min-w-12">To:</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setSearchQuery('');
+                  setMedicineSearch('');
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="text-gray-500 hover:text-pink-600"
+              >
+                Reset
+              </Button>
+            </div>
           </div>
 
           {/* Prescriptions List */}
@@ -135,27 +203,91 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
                           <span className="flex items-center gap-1"><User className="size-4" /> {rx.doctor?.full_name || 'Clinic Doctor'}</span>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleExpand(rx.prescription_id)}
-                      >
-                        {expandedId === rx.prescription_id ? 'Hide' : 'View Details'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => patientService.downloadWithAuth(
+                            patientService.downloadPrescriptionUrl(rx.prescription_id),
+                            `prescription-${rx.prescription_id}.txt`
+                          )}
+                          className="text-green-600 border-green-200"
+                        >
+                          <Download className="size-4 mr-1" />
+                          Download
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleExpand(rx.prescription_id)}
+                        >
+                          {expandedId === rx.prescription_id ? 'Hide' : 'View Details'}
+                        </Button>
+                      </div>
                     </div>
 
                     {expandedId === rx.prescription_id && (
                       <div className="pt-4 border-t space-y-4">
+                        {/* Medicines Section */}
                         <div className="space-y-2">
+                          <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                            <Pill className="size-4 text-pink-600" />
+                            Prescribed Medicines
+                          </h4>
                           {(rx.medicines || []).map((med: any, idx: number) => (
-                            <div key={idx} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                            <div key={idx} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center border border-gray-100">
                               <div>
-                                <p className="font-bold text-gray-900">{med.name || med.medicine_id}</p>
-                                <p className="text-xs text-gray-600">{med.dosage} • {med.frequency}</p>
+                                <p className="font-bold text-gray-900">{med.medicine_name || med.name || 'Medicine'}</p>
+                                <p className="text-xs text-gray-600">{med.dosage} • {med.frequency} • {med.duration}</p>
                               </div>
                             </div>
                           ))}
                         </div>
+
+                        {/* Lab Tests Section */}
+                        {rx.lab_tests && rx.lab_tests.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                              <Activity className="size-4 text-pink-600" />
+                              Recommended Lab Tests
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {rx.lab_tests.map((test: any, idx: number) => (
+                                <div key={idx} className="p-3 bg-pink-50/30 rounded-lg border border-pink-100 flex items-center gap-2">
+                                  <div className="size-2 bg-pink-400 rounded-full" />
+                                  <span className="text-sm text-gray-800">{test.test_name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Notes & Follow-up */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {rx.diagnosis && (
+                            <div className="p-3 bg-blue-50/30 rounded-lg border border-blue-100">
+                              <p className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-1">Diagnosis</p>
+                              <p className="text-sm text-gray-800">{rx.diagnosis}</p>
+                            </div>
+                          )}
+                          {rx.follow_up_date && (
+                            <div className="p-3 bg-orange-50/30 rounded-lg border border-orange-100">
+                              <p className="text-xs font-bold text-orange-900 uppercase tracking-wider mb-1">Follow-up Date</p>
+                              <p className="text-sm text-gray-800 flex items-center gap-2">
+                                <Calendar className="size-4 text-orange-600" />
+                                {new Date(rx.follow_up_date).toLocaleDateString()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {rx.notes && (
+                          <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Doctor's Notes</p>
+                            <p className="text-sm text-gray-700 italic">"{rx.notes}"</p>
+                          </div>
+                        )}
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -168,7 +300,14 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
                         </Button>
                         {showAIExplanation === rx.prescription_id && (
                           <div className="p-4 bg-white border border-purple-100 rounded-lg text-sm text-gray-700 leading-relaxed">
-                            {aiLoading ? 'Analyzing...' : aiContent}
+                            {aiLoading ? (
+                              <div className="flex items-center gap-2 text-purple-600">
+                                <Clock className="size-4 animate-spin" />
+                                Analyzing your prescription...
+                              </div>
+                            ) : (
+                              <div className="whitespace-pre-line">{aiContent}</div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -200,14 +339,14 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
                     const file = e.target.files?.[0];
                     if (file) {
                       try {
-                        setLoading(true);
+                        setUploading(true);
                         await patientService.uploadDocument(file);
                         toast.success('Document uploaded successfully');
                         fetchDocuments();
                       } catch (error: any) {
                         toast.error(error.message || 'Failed to upload document');
                       } finally {
-                        setLoading(false);
+                        setUploading(false);
                       }
                     }
                   }}
@@ -216,9 +355,9 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
                   className="w-full bg-pink-600 hover:bg-pink-700"
                   size="sm"
                   onClick={() => document.getElementById('file-upload')?.click()}
-                  disabled={_loading}
+                  disabled={uploading}
                 >
-                  {_loading ? 'Uploading...' : 'Choose Files'}
+                  {uploading ? 'Uploading...' : 'Choose Files'}
                 </Button>
               </div>
             </CardContent>
@@ -231,20 +370,50 @@ export function MyPrescriptions({ patient }: { patient: PatientUser }) {
             ) : (
               documents.map((doc) => (
                 <Card key={doc.id} className="border-gray-100 hover:border-pink-200 transition-colors">
-                  <CardContent className="p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="size-8 bg-pink-50 rounded flex items-center justify-center">
-                        <FileText className="size-4 text-pink-600" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="size-8 bg-pink-50 rounded flex items-center justify-center">
+                          <FileText className="size-4 text-pink-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900 truncate max-w-[120px]">{doc.file_name}</p>
+                          <p className="text-[10px] text-gray-500">{new Date(doc.created_at).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 truncate max-w-[120px]">{doc.file_name}</p>
-                        <p className="text-[10px] text-gray-500">{new Date(doc.created_at).toLocaleDateString()}</p>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="size-7 text-purple-600"
+                          onClick={() => handleGetAIExplanation(doc.id, doc.file_name)}
+                          disabled={aiLoading}
+                        >
+                          <Brain className="size-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-7" onClick={() => window.open(doc.file_url, '_blank')}><Eye className="size-3" /></Button>
+                        <Button variant="ghost" size="icon" className="size-7 text-red-400"
+                          onClick={async () => {
+                            if (await patientService.deleteDocument(doc.id)) {
+                              setDocuments(prev => prev.filter((d: any) => d.id !== doc.id));
+                            }
+                          }}
+                        ><Trash2 className="size-3" /></Button>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="size-7"><Eye className="size-3" /></Button>
-                      <Button variant="ghost" size="icon" className="size-7 text-red-400"><Trash2 className="size-3" /></Button>
-                    </div>
+                    {showAIExplanation === doc.id && (
+                      <div className="mt-3 p-3 bg-purple-50 border border-purple-100 rounded-lg text-[10px] text-gray-700 leading-relaxed">
+                        {aiLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin size-3 border-b-2 border-purple-600 rounded-full"></div>
+                            Analyzing...
+                          </div>
+                        ) : aiContent}
+                        {!aiLoading && (
+                          <Button variant="ghost" size="sm" className="h-4 p-0 ml-2 text-[10px] text-purple-600" onClick={() => setShowAIExplanation(null)}>Close</Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))

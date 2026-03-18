@@ -20,12 +20,24 @@ class Doctor {
             }
             if (!Array.isArray(specs) || specs.length === 0) return;
 
-            await prisma.doctor_specializations.createMany({
-                data: specs.map(s => ({
-                    doctor_id: doctorId,
-                    specialization: s
-                }))
-            });
+            for (const spec of specs) {
+                let specMaster = await prisma.specializations_master.findFirst({
+                    where: { specialization_name: spec }
+                });
+
+                if (!specMaster) {
+                    specMaster = await prisma.specializations_master.create({
+                        data: { specialization_name: spec }
+                    });
+                }
+
+                await prisma.doctor_specializations.create({
+                    data: {
+                        doctor_id: doctorId,
+                        specialization_id: specMaster.id
+                    }
+                });
+            }
         } catch (error) {
             console.error('Error inserting specializations:', error);
             throw error;
@@ -63,7 +75,7 @@ class Doctor {
             await prisma.doctor_consultation_modes.createMany({
                 data: mds.map(m => ({
                     doctor_id: doctorId,
-                    mode: m
+                    consultation_mode: m
                 }))
             });
         } catch (error) {
@@ -78,7 +90,11 @@ class Doctor {
                 take: limit,
                 skip: offset,
                 include: {
-                    doctor_specializations: true,
+                    doctor_specializations: {
+                        include: {
+                            specializations_master: true
+                        }
+                    },
                     doctor_languages: true,
                     doctor_consultation_modes: true
                 }
@@ -87,9 +103,9 @@ class Doctor {
             // Map back to the expected format for backward compatibility
             return doctors.map(doctor => ({
                 ...doctor,
-                specializations: doctor.doctor_specializations.map(s => s.specialization),
+                specializations: doctor.doctor_specializations.map(s => s.specializations_master?.specialization_name),
                 languages: doctor.doctor_languages.map(l => l.language),
-                consultation_modes: doctor.doctor_consultation_modes.map(m => m.mode)
+                consultation_modes: doctor.doctor_consultation_modes.map(m => m.consultation_mode)
             }));
         } catch (error) {
             throw error;
@@ -101,7 +117,11 @@ class Doctor {
             const doctor = await prisma.doctors.findUnique({
                 where: { id: id },
                 include: {
-                    doctor_specializations: true,
+                    doctor_specializations: {
+                        include: {
+                            specializations_master: true
+                        }
+                    },
                     doctor_languages: true,
                     doctor_consultation_modes: true,
                     doctor_practice_locations: true,
@@ -115,9 +135,9 @@ class Doctor {
             // Map back to the expected format
             return {
                 ...doctor,
-                specializations: doctor.doctor_specializations.map(s => s.specialization),
+                specializations: doctor.doctor_specializations.map(s => s.specializations_master?.specialization_name),
                 languages: doctor.doctor_languages.map(l => l.language),
-                consultation_modes: doctor.doctor_consultation_modes.map(m => m.mode)
+                consultation_modes: doctor.doctor_consultation_modes.map(m => m.consultation_mode)
             };
         } catch (error) {
             throw error;

@@ -1,30 +1,23 @@
 import {
   Calendar,
   FileText,
-  ShoppingBag,
   Activity,
-  Brain,
-  Upload,
   CreditCard,
   Heart,
-  TrendingUp,
   Footprints,
   Pill,
-  FileCheck,
-  Clock,
-  CheckCircle,
-  Video
+  Upload,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../common/ui/card';
 import { Badge } from '../common/ui/badge';
 import { Button } from '../common/ui/button';
-import { User } from '../common/types';
-import { Dashboard } from "../common/Dashboard";
 import { Avatar, AvatarFallback } from '../common/ui/avatar';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { PatientUser, PatientPage } from './PatientPortal';
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
+import { patientService } from '../services/patientService';
 
 interface PatientDashboardProps {
   patient: PatientUser;
@@ -64,57 +57,65 @@ const stepsData = [
   { day: 'Sun', steps: 8800 }
 ];
 
-const recentActivities = [
-  {
-    id: 1,
-    type: 'appointment',
-    icon: Calendar,
-    title: 'Appointment Scheduled',
-    description: 'Dr. Sarah Johnson - Cardiology, Nov 15 at 10:00 AM',
-    time: '2 hours ago',
-    color: 'text-pink-600',
-    bgColor: 'bg-pink-100'
-  },
-  {
-    id: 2,
-    type: 'report',
-    icon: FileText,
-    title: 'Report Uploaded',
-    description: 'Complete Blood Count (CBC) - Nov 10, 2025',
-    time: '1 day ago',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
-  },
-  {
-    id: 3,
-    type: 'prescription',
-    icon: Pill,
-    title: 'New Prescription',
-    description: 'Metformin 500mg prescribed by Dr. Rajesh Kumar',
-    time: '3 days ago',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100'
+const getActivityDetails = (type: string) => {
+  switch (type) {
+    case 'appointment':
+      return { icon: Calendar, color: 'text-pink-600', bgColor: 'bg-pink-100' };
+    case 'report':
+      return { icon: FileText, color: 'text-blue-600', bgColor: 'bg-blue-100' };
+    case 'prescription':
+      return { icon: Pill, color: 'text-purple-600', bgColor: 'bg-purple-100' };
+    default:
+      return { icon: Activity, color: 'text-gray-600', bgColor: 'bg-gray-100' };
   }
-];
+};
+
+const formatTimeAgo = (timestamp: number) => {
+  if (!timestamp) return 'Just now';
+  const diff = Date.now() - timestamp;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const mins = Math.floor(diff / (1000 * 60));
+  if (mins > 0) return `${mins} min${mins > 1 ? 's' : ''} ago`;
+  return 'Just now';
+};
 
 export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps) {
   const [upcomingAppointments, setUpcomingAppointments] = useState<{ count: number; appointments: Appointment[] }>({ count: 0, appointments: [] });
+  const [dashboardStats, setDashboardStats] = useState({
+    upcomingAppointments: 0,
+    activePrescriptions: 0,
+    healthScore: 0,
+    pendingBills: 0,
+    recentActivities: [] as any[]
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUpcomingAppointments = async () => {
+    const fetchData = async () => {
       try {
-        const data = await api.get(`/appointments/upcoming/${patient.id}`);
-        setUpcomingAppointments(data);
+        setLoading(true);
+        const [appointmentsData, statsData] = await Promise.all([
+          api.get(`/appointments/upcoming/${patient.id}`),
+          patientService.getDashboardStats()
+        ]);
+        
+        setUpcomingAppointments(appointmentsData);
+        if (statsData) {
+          setDashboardStats(statsData);
+        }
       } catch (error) {
-        console.error('Error fetching upcoming appointments:', error);
-        setUpcomingAppointments({ count: 0, appointments: [] });
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUpcomingAppointments();
+    if (patient.id) {
+      fetchData();
+    }
   }, [patient.id]);
 
   return (
@@ -148,10 +149,15 @@ export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps)
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Pill className="size-5 text-purple-600" />
               </div>
-              <Badge className="bg-purple-600">View</Badge>
+              <Badge 
+                className="bg-purple-600 cursor-pointer" 
+                onClick={() => onNavigate('prescriptions')}
+              >
+                View
+              </Badge>
             </div>
             <p className="text-sm text-gray-600 mb-1">Active Prescriptions</p>
-            <p className="text-3xl font-bold text-gray-900">5</p>
+            <p className="text-3xl font-bold text-gray-900">{dashboardStats.activePrescriptions}</p>
           </CardContent>
         </Card>
 
@@ -164,7 +170,7 @@ export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps)
               <Badge className="bg-green-600">Excellent</Badge>
             </div>
             <p className="text-sm text-gray-600 mb-1">Health Score</p>
-            <p className="text-3xl font-bold text-gray-900">85%</p>
+            <p className="text-3xl font-bold text-gray-900">{dashboardStats.healthScore}%</p>
           </CardContent>
         </Card>
 
@@ -174,10 +180,15 @@ export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps)
               <div className="p-2 bg-orange-100 rounded-lg">
                 <CreditCard className="size-5 text-orange-600" />
               </div>
-              <Badge className="bg-orange-600">Pay</Badge>
+              <Badge 
+                className="bg-orange-600 cursor-pointer"
+                onClick={() => onNavigate('billing')}
+              >
+                Pay
+              </Badge>
             </div>
             <p className="text-sm text-gray-600 mb-1">Pending Bills</p>
-            <p className="text-3xl font-bold text-gray-900">₹1,450</p>
+            <p className="text-3xl font-bold text-gray-900">₹{dashboardStats.pendingBills.toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
@@ -261,7 +272,7 @@ export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps)
 
             <Button
               className="h-auto flex-col gap-2 py-4 bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-              onClick={() => onNavigate('reports')}
+              onClick={() => onNavigate('prescriptions')}
             >
               <Upload className="size-6" />
               <span className="text-sm">Upload Report</span>
@@ -294,18 +305,26 @@ export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps)
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-pink-50 transition-colors">
-                  <div className={`p-2 rounded-lg ${activity.bgColor}`}>
-                    <activity.icon className={`size-5 ${activity.color}`} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-1">{activity.title}</h4>
-                    <p className="text-sm text-gray-600">{activity.description}</p>
-                  </div>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">{activity.time}</span>
-                </div>
-              ))}
+              {dashboardStats.recentActivities && dashboardStats.recentActivities.length > 0 ? (
+                dashboardStats.recentActivities.map((activity) => {
+                  const details = getActivityDetails(activity.type);
+                  const Icon = details.icon;
+                  return (
+                    <div key={activity.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-pink-50 transition-colors">
+                      <div className={`p-2 rounded-lg ${details.bgColor}`}>
+                        <Icon className={`size-5 ${details.color}`} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 mb-1">{activity.title}</h4>
+                        <p className="text-sm text-gray-600">{activity.description}</p>
+                      </div>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{formatTimeAgo(activity.time)}</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-gray-500 text-sm text-center py-4">No recent activity</p>
+              )}
             </div>
           </CardContent>
         </Card>

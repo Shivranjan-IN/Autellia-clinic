@@ -9,7 +9,8 @@ import {
     Clock,
     CheckCircle,
     XCircle,
-    Loader2
+    Loader2,
+    Brain
 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { dashboardService, DashboardStats, AppointmentChartData, RevenueChartData, RecentAppointment } from '../services/dashboardService';
@@ -65,10 +66,34 @@ export function Dashboard({ userRole }: DashboardProps) {
     }, []);
 
     const statConfig = [
-        { label: "Total Patients Managed", value: doctorStats.totalPatients.toString(), change: 'Overall', icon: Users, color: 'blue' },
-        { label: 'Pending Appointments', value: doctorStats.pendingAppointments.toString(), change: 'Awaiting', icon: Clock, color: 'orange' },
-        { label: 'Completed Cases', value: doctorStats.completedAppointments.toString(), change: 'Total', icon: CheckCircle, color: 'green' },
-        { label: 'Recent Revenue', value: stats?.totalRevenue || '$0', change: 'Personal', icon: DollarSign, color: 'purple' },
+        { 
+            label: "Total Patients Managed", 
+            value: (doctorStats?.totalPatients ?? 0).toString(), 
+            change: 'Overall', 
+            icon: Users, 
+            color: 'blue' 
+        },
+        { 
+            label: 'Pending Appointments', 
+            value: (doctorStats?.pendingAppointments ?? 0).toString(), 
+            change: 'Awaiting', 
+            icon: Clock, 
+            color: 'orange' 
+        },
+        { 
+            label: 'Completed Cases', 
+            value: (doctorStats?.completedAppointments ?? 0).toString(), 
+            change: 'Total', 
+            icon: CheckCircle, 
+            color: 'green' 
+        },
+        { 
+            label: 'Recent Revenue', 
+            value: stats?.totalRevenue || '₹0', 
+            change: 'Personal', 
+            icon: DollarSign, 
+            color: 'purple' 
+        },
     ];
 
     if (loading) {
@@ -80,10 +105,15 @@ export function Dashboard({ userRole }: DashboardProps) {
         );
     }
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-gray-600">Overview of clinic performance</p>
+        <div className="space-y-8">
+            <div className="flex justify-between items-end">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Practice Overview</h1>
+                    <p className="text-slate-500 font-medium">Real-time performance analytics for your clinic</p>
+                </div>
+                <div className="hidden md:flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest border border-slate-100">Last 30 Days</div>
+                </div>
             </div>
 
             {/* Stats Grid */}
@@ -92,160 +122,184 @@ export function Dashboard({ userRole }: DashboardProps) {
                     const Icon = stat.icon;
                     const styles = colorStyles[stat.color] || colorStyles.blue;
                     return (
-                        <div key={stat.label} className="bg-white rounded-xl p-6 border border-gray-200">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={`p-3 rounded-lg ${styles.wrapper}`}>
-                                    <Icon className={`w-6 h-6 ${styles.icon}`} />
+                        <div key={stat.label} className="group bg-white rounded-[2rem] p-8 border border-slate-200 hover:border-blue-500/30 transition-all duration-500 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:shadow-xl hover:shadow-blue-600/5 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-600/5 to-transparent rounded-bl-[100px] -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
+                            
+                            <div className="flex items-center justify-between mb-6 relative">
+                                <div className={`w-14 h-14 rounded-2xl ${styles.wrapper} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform`}>
+                                    <Icon className={`w-7 h-7 ${styles.icon}`} />
                                 </div>
-                                <span className="text-sm font-medium text-gray-600">
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 ${styles.wrapper} ${styles.icon} rounded-lg`}>
                                     {stat.change}
                                 </span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                            <p className="text-sm text-gray-600">{stat.label}</p>
+                            <div className="space-y-1 relative">
+                                <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+                                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                            </div>
                         </div>
                     );
                 })}
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Appointment Distribution */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 className="font-semibold text-gray-900">Today's Appointments</h3>
-                            <p className="text-sm text-gray-600">By time slot</p>
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.03)]">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Patient Flow</h3>
+                            <p className="text-sm font-medium text-slate-400">Activity peak analysis</p>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-blue-600">
-                            <TrendingUp className="w-4 h-4" />
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-black uppercase tracking-widest border border-blue-100 italic">
+                            <TrendingUp className="w-3.5 h-3.5" />
                             <span>Peak: 11 AM</span>
                         </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={appointmentData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip />
-                            <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                            <CartesianGrid strokeDasharray="8 8" stroke="#f1f5f9" vertical={false} />
+                            <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} />
+                            <Tooltip 
+                                cursor={{fill: '#f8fafc'}}
+                                contentStyle={{borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.05)', fontWeight: 800}}
+                            />
+                            <Bar dataKey="count" fill="url(#blueGradient)" radius={[6, 6, 0, 0]} barSize={32} />
+                            <defs>
+                                <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#2563eb" />
+                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                </linearGradient>
+                            </defs>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
 
                 {/* Revenue Trend */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 className="font-semibold text-gray-900">Weekly Revenue</h3>
-                            <p className="text-sm text-gray-600">Last 7 days</p>
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.03)]">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Revenue Growth</h3>
+                            <p className="text-sm font-medium text-slate-400">Weekly financial trajectory</p>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-green-600">
-                            <TrendingUp className="w-4 h-4" />
-                            <span>+15%</span>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-widest border border-emerald-100 italic">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            <span>+15.2%</span>
                         </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={revenueData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip />
+                            <CartesianGrid strokeDasharray="8 8" stroke="#f1f5f9" vertical={false} />
+                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} />
+                            <Tooltip 
+                                contentStyle={{borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.05)', fontWeight: 800}}
+                            />
                             <Line
                                 type="monotone"
                                 dataKey="revenue"
                                 stroke="#10b981"
-                                strokeWidth={2}
-                                dot={{ fill: '#10b981', r: 4 }}
+                                strokeWidth={4}
+                                dot={{ fill: '#10b981', r: 6, strokeWidth: 4, stroke: '#fff' }}
+                                activeDot={{ r: 8, strokeWidth: 0 }}
                             />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
             </div>
 
-            {/* Recent Appointments */}
-            <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                    <h3 className="font-semibold text-gray-900">Recent Appointments</h3>
-                    <p className="text-sm text-gray-600">Latest patient appointments</p>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {recentAppointments.map((appointment) => (
-                                <tr key={appointment.appointment_id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm text-gray-900">{appointment.patient}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{appointment.doctor}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4" />
-                                            {typeof appointment.time === 'string'
-                                                ? (appointment.time.includes('T')
-                                                    ? new Date(appointment.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                                    : appointment.time)
-                                                : (appointment.time ? String(appointment.time) : '—')}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {(() => {
-                                            const rawStatus = typeof appointment.status === 'string' ? appointment.status : 'unknown';
-                                            const normalized = rawStatus.toLowerCase();
-                                            const badgeClass =
-                                                normalized === 'completed' ? 'bg-green-100 text-green-700' :
-                                                    (normalized === 'in-progress' || normalized === 'in_progress') ? 'bg-blue-100 text-blue-700' :
-                                                        normalized === 'waiting' ? 'bg-yellow-100 text-yellow-700' :
-                                                            normalized === 'scheduled' ? 'bg-purple-100 text-purple-700' :
-                                                                'bg-red-100 text-red-700';
-                                            const label = rawStatus
-                                                ? rawStatus.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                                                : 'Unknown';
-
-                                            return (
-                                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
-                                                    {normalized === 'completed' && <CheckCircle className="w-3 h-3" />}
-                                                    {normalized === 'cancelled' && <XCircle className="w-3 h-3" />}
-                                                    {label}
-                                                </span>
-                                            );
-                                        })()}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* AI Insights */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-                <div className="flex items-start gap-4">
-                    <div className="p-3 bg-blue-600 rounded-lg">
-                        <TrendingUp className="w-6 h-6 text-white" />
+            {/* Recent Appointments & Insights */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2 bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.03)]">
+                    <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Recent Activity</h3>
+                            <p className="text-sm font-medium text-slate-400">Latest patient consultations</p>
+                        </div>
+                        <button className="text-xs font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors">View All</button>
                     </div>
-                    <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-2">AI Insights</h3>
-                        <ul className="space-y-2 text-sm text-gray-700">
-                            <li className="flex items-start gap-2">
-                                <span className="text-blue-600 mt-0.5">•</span>
-                                <span><strong>Peak Hours:</strong> Most appointments scheduled between 10-11 AM. Consider adding more slots.</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-blue-600 mt-0.5">•</span>
-                                <span><strong>Revenue Trend:</strong> 15% increase in weekly revenue. Saturday shows highest revenue generation.</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-blue-600 mt-0.5">•</span>
-                                <span><strong>No-show Prediction:</strong> 3 appointments at risk of no-show today. Auto-reminder sent.</span>
-                            </li>
-                        </ul>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50/50">
+                                <tr>
+                                    <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {recentAppointments.map((appointment) => (
+                                    <tr key={appointment.appointment_id} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black text-sm group-hover:bg-blue-600 transition-colors group-hover:text-white">
+                                                    {(appointment.patient || 'P').charAt(0)}
+                                                </div>
+                                                <span className="font-bold text-slate-700">{appointment.patient}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-2 text-slate-500 font-medium text-sm">
+                                                <Clock className="w-4 h-4 text-slate-300" />
+                                                {typeof appointment.time === 'string'
+                                                    ? (appointment.time.includes('T')
+                                                        ? new Date(appointment.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                        : appointment.time)
+                                                    : (appointment.time ? String(appointment.time) : '—')}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            {(() => {
+                                                const rawStatus = typeof appointment.status === 'string' ? appointment.status : 'unknown';
+                                                const normalized = rawStatus.toLowerCase();
+                                                const style = normalized === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                              normalized === 'scheduled' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                              'bg-slate-50 text-slate-500 border-slate-100';
+                                                
+                                                return (
+                                                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${style}`}>
+                                                        {rawStatus.replace(/[_-]/g, ' ')}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-600/20 relative overflow-hidden group">
+                        <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000" />
+                        <Brain className="w-10 h-10 mb-6 text-blue-100" />
+                        <h3 className="text-2xl font-black tracking-tight mb-4 leading-tight">AI Diagnostic Insights</h3>
+                        <div className="space-y-4">
+                            <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/15 transition-colors">
+                                <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-blue-200">System Alert</p>
+                                <p className="text-sm font-bold">Peak activity detected at 11:00 AM. Optimal staffing suggested.</p>
+                            </div>
+                            <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/15 transition-colors">
+                                <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-blue-200">Revenue Forecast</p>
+                                <p className="text-sm font-bold">+15% week-over-week growth projected based on current intake.</p>
+                            </div>
+                        </div>
+                        <button className="mt-8 w-full py-4 bg-white text-blue-700 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg hover:bg-blue-50 transition-all">Details</button>
+                    </div>
+
+                    <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex items-center justify-between group cursor-pointer hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner group-hover:scale-110 transition-transform">
+                                <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-slate-900 leading-tight">No-show Warning</h4>
+                                <p className="text-xs font-medium text-slate-400">3 appointments at risk</p>
+                            </div>
+                        </div>
+                        <TrendingUp className="w-5 h-5 text-slate-300 group-hover:text-rose-500 transition-colors" />
                     </div>
                 </div>
             </div>

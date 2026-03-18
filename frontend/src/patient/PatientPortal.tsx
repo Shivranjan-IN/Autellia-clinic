@@ -14,6 +14,7 @@ import { PatientHeader } from './PatientHeader';
 import { PatientSidebar } from './PatientSidebar';
 import { MyAppointments } from './MyAppointments';
 import { VideoConsultation } from './VideoConsultation';
+import { MyReports } from './MyReports';
 import type { User } from '../common/types';
 
 export type PatientPage =
@@ -25,6 +26,7 @@ export type PatientPage =
   | 'appointments'
   | 'video-consultation'
   | 'prescriptions'
+  | 'reports'
   | 'cart'
   | 'orders'
   | 'reminders'
@@ -116,7 +118,7 @@ export function PatientPortal({ user, onLogout }: PatientPortalProps) {
       case 'ai-tools':
         return <AIHealthTools />;
       case 'medicine-store':
-        return <MedicineStore />;
+        return <MedicineStore onNavigate={setCurrentPage} />;
       case 'profile':
         return <PatientProfile
           patient={patientData}
@@ -125,11 +127,13 @@ export function PatientPortal({ user, onLogout }: PatientPortalProps) {
       case 'book-appointment':
         return <BookAppointment patient={patientData} />;
       case 'appointments':
-        return <MyAppointments patient={patientData} />;
+        return <MyAppointments patient={patientData} onNavigate={setCurrentPage} />;
       case 'video-consultation':
         return <VideoConsultation patient={patientData} />;
       case 'prescriptions':
         return <MyPrescriptions patient={patientData} />;
+      case 'reports':
+        return <MyReports patient={patientData} />;
       case 'cart':
         return <CartPage patient={patientData} onNavigate={setCurrentPage} />;
       case 'orders':

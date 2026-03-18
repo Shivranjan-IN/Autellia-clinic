@@ -120,6 +120,78 @@ exports.getBilling = async (req, res, next) => {
     }
 };
 
+exports.searchBillingPatients = async (req, res, next) => {
+    try {
+        const { query } = req.query;
+        const clinicId = req.user.clinic_id;
+
+        if (!query) {
+            return ResponseHandler.badRequest(res, 'Search query is required');
+        }
+
+        // Search for patients by email or phone
+        const emailMatches = await prisma.emails.findMany({
+            where: { email: { contains: query } },
+            select: { user_id: true }
+        });
+
+        const phoneMatches = await prisma.contact_numbers.findMany({
+            where: { phone_number: { contains: query } },
+            select: { user_id: true }
+        });
+
+        const userIds = new Set([
+            ...emailMatches.map(e => e.user_id),
+            ...phoneMatches.map(p => p.user_id)
+        ].filter(Boolean));
+
+        const patients = await prisma.patients.findMany({
+            where: {
+                OR: [
+                    { user_id: { in: Array.from(userIds) } },
+                    { full_name: { contains: query, mode: 'insensitive' } }
+                ]
+            },
+            include: {
+                users: {
+                    include: {
+                        emails: true,
+                        contact_numbers: true
+                    }
+                }
+            }
+        });
+
+        // For each patient, get their latest prescription from THIS clinic
+        const results = await Promise.all(patients.map(async (p) => {
+            const latestPrescription = await prisma.prescriptions.findFirst({
+                where: {
+                    patient_id: p.patient_id,
+                    clinic_id: clinicId
+                },
+                orderBy: { created_at: 'desc' },
+                include: {
+                    doctor: true,
+                    medicines: { include: { medicines: true } },
+                    lab_tests: { include: { lab_test_types: true } }
+                }
+            });
+
+            return {
+                patient_id: p.patient_id,
+                full_name: p.full_name,
+                email: p.users?.emails?.[0]?.email,
+                phone: p.users?.contact_numbers?.[0]?.phone_number,
+                latest_prescription: latestPrescription
+            };
+        }));
+
+        ResponseHandler.success(res, results, 'Billing patients retrieved');
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.createInvoice = async (req, res, next) => {
     try {
         const clinicId = req.user.clinic_id;

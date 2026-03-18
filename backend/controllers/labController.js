@@ -6,8 +6,8 @@ const labController = {
         try {
             const orderData = {
                 ...req.body,
-                clinic_id: req.user.role === 'clinic' ? req.user.id : req.body.clinic_id,
-                doctor_id: req.user.role === 'doctor' ? req.user.id : req.body.doctor_id
+                clinic_id: req.user.role === 'clinic' ? req.user.clinic_id : req.body.clinic_id,
+                doctor_id: req.user.role === 'doctor' ? req.user.doctor_id : req.body.doctor_id
             };
 
             const newOrder = await labModel.createLabOrder(orderData);
@@ -33,17 +33,17 @@ const labController = {
 
             // If clinic user, only show their orders
             if (req.user.role === 'clinic') {
-                filters.clinic_id = req.user.id;
+                filters.clinic_id = req.user.clinic_id;
             }
 
             // If doctor user, only show their orders
             if (req.user.role === 'doctor') {
-                filters.doctor_id = req.user.id;
+                filters.doctor_id = req.user.doctor_id;
             }
 
             // If patient user, only show their orders
             if (req.user.role === 'patient') {
-                filters.patient_id = req.user.patient_id; // Mapping from patient login if applicable
+                filters.patient_id = req.user.patient_id;
             }
 
             const orders = await labModel.getAllLabOrders(filters);
@@ -60,6 +60,22 @@ const labController = {
             });
         }
     },
+
+    // Patient gets their own lab orders
+    getMyOrders: async (req, res) => {
+        try {
+            const patientId = req.user.patient_id;
+            if (!patientId) {
+                return res.status(400).json({ success: false, message: 'Patient ID not found in session' });
+            }
+            const orders = await labModel.getAllLabOrders({ patient_id: patientId });
+            res.status(200).json({ success: true, data: orders });
+        } catch (error) {
+            console.error('Error fetching patient lab orders:', error);
+            res.status(500).json({ success: false, message: 'Failed to fetch lab orders', error: error.message });
+        }
+    },
+
 
     // Get single lab order details
     getOrderById: async (req, res) => {
@@ -118,6 +134,24 @@ const labController = {
             res.status(500).json({
                 success: false,
                 message: 'Failed to delete lab order',
+                error: error.message
+            });
+        }
+    },
+
+    // Get all lab test types
+    getTestTypes: async (req, res) => {
+        try {
+            const types = await labModel.getTestTypes();
+            res.status(200).json({
+                success: true,
+                data: types
+            });
+        } catch (error) {
+            console.error('Error fetching test types:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch test types',
                 error: error.message
             });
         }

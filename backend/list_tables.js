@@ -1,26 +1,26 @@
 require('dotenv').config();
-const { Pool } = require('pg');
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+const { Client } = require('pg');
 
 async function listTables() {
+    const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+    });
+
     try {
-        const res = await pool.query(`
+        await client.connect();
+        const res = await client.query(`
             SELECT table_name 
             FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            ORDER BY table_name
+            WHERE table_schema = 'public'
         `);
         console.log('Tables in database:');
-        res.rows.forEach(row => console.log(row.table_name));
-        
+        console.log(res.rows.map(r => r.table_name).join(', '));
     } catch (err) {
         console.error(err);
     } finally {
-        await pool.end();
+        await client.end();
     }
 }
 

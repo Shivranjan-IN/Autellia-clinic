@@ -18,7 +18,7 @@ export type PageView =
     | "features" | "how-it-works" | "pricing" | "ai-features"
     | "medicine" | "cart" | "healthcare" | "doctor-consult"
     | "lab-tests" | "plus" | "health-insights" | "offers" | "contact"
-    | "register-clinic" | "register-doctor" | "register-patient"
+    | "register-clinic" | "register-doctor"
     // Patient Portal Views
     | "patient-book-appointment" | "patient-appointments"
     | "patient-prescriptions" | "patient-reports" | "patient-billing"

@@ -281,7 +281,7 @@ class DoctorService {
             return result.data;
         } catch (error) {
             console.error('Error fetching doctor stats:', error);
-            throw { totalPatients: 0, pendingAppointments: 0, completedAppointments: 0 };
+            return { totalPatients: 0, pendingAppointments: 0, completedAppointments: 0 };
         }
     }
 
@@ -315,6 +315,63 @@ class DoctorService {
         } catch (error) {
             console.error('Error updating doctor profile:', error);
             throw error;
+        }
+    }
+
+    // --- Patient Documents (For Doctors) ---
+    async getPatientDocuments(patientId: string): Promise<any[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/documents/patient/${patientId}`, {
+                headers: await this.getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            return result.data || [];
+        } catch (error) {
+            console.error('Error fetching patient documents:', error);
+            throw error;
+        }
+    }
+
+    async uploadPatientDocument(patientId: string, file: File, type: string): Promise<any> {
+        try {
+            const formData = new FormData();
+            formData.append('document', file);
+            formData.append('patient_id', patientId);
+            formData.append('document_type', type);
+
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${API_BASE_URL}/api/documents/patient/upload`, {
+                method: 'POST',
+                headers: {
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorResult = await response.json();
+                throw new Error(errorResult.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error uploading patient document:', error);
+            throw error;
+        }
+    }
+
+    async deletePatientDocument(documentId: number): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/documents/doctor/${documentId}`, {
+                method: 'DELETE',
+                headers: await this.getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return true;
+        } catch (error) {
+            console.error('Error deleting patient document:', error);
+            return false;
         }
     }
 }

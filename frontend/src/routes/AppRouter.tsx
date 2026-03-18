@@ -88,20 +88,17 @@ export const AppRouter: React.FC = () => {
         navigateTo("login");
     };
 
-    const handleRegister = (role: "patient" | "doctor" | "clinic") => {
+    const handleRegister = (role: "doctor" | "clinic") => {
         if (role === "clinic") {
             navigateTo("register-clinic");
         } else if (role === "doctor") {
             navigateTo("register-doctor");
-        } else {
-            alert("Patient registration will use quick signup with mobile OTP");
-            navigateTo("login");
         }
     };
 
     const handleRegistrationComplete = () => {
-        alert("Registration completed successfully!");
-        navigateTo("login");
+        alert("Registration completed successfully! Welcome to your dashboard.");
+        navigateTo("dashboard");
     };
 
     if (loading) {
@@ -118,8 +115,9 @@ export const AppRouter: React.FC = () => {
     // 1. Core Public Pages
     if (currentView === "home") return <Home onGetStarted={() => navigateTo("login")} onNavigate={navigateTo} />;
     if (currentView === "login") return <Login onLogin={login} onBack={() => navigateTo("home")} onRegister={handleRegister} />;
-    if (currentView === "register-clinic") return <ClinicRegistration onComplete={handleRegistrationComplete} onBack={() => navigateTo("login")} />;
-    if (currentView === "register-doctor") return <DoctorRegistration onComplete={handleRegistrationComplete} onBack={() => navigateTo("login")} />;
+
+    if (currentView === "register-clinic") return <ClinicRegistration onSuccess={handleRegistrationComplete} onBack={() => navigateTo("login")} />;
+    if (currentView === "register-doctor") return <DoctorRegistration onSuccess={handleRegistrationComplete} onBack={() => navigateTo("login")} />;
 
     // Feature Pages
     if (currentView === "features") return <Features onNavigate={navigateTo} />;

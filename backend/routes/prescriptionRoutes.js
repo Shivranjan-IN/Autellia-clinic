@@ -6,6 +6,9 @@ const router = express.Router();
 
 router.use(protect);
 
+// Patient gets their own prescriptions
+router.get('/my', prescriptionController.getMyPrescriptions);
+
 router.post(
     '/',
     authorize('doctor', 'admin'),
@@ -18,6 +21,8 @@ router.get(
     prescriptionController.getAllPrescriptions
 );
 
+router.get('/:id/download', prescriptionController.downloadPrescription);
+
 router.get(
     '/:id',
     prescriptionController.getPrescriptionById
@@ -29,3 +34,4 @@ router.get(
 );
 
 module.exports = router;
+

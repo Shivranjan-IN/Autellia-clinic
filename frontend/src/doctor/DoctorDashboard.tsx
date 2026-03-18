@@ -21,6 +21,7 @@ import { ReportsAnalytics } from './ReportsAnalytics';
 import { AIModules } from './AIModules';
 import { IoTIntegration } from './IoTIntegration';
 import { Notifications } from './Notifications';
+import { PatientDocuments } from './PatientDocuments';
 import { Settings } from './Settings';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -35,6 +36,7 @@ type DoctorView =
   | 'prescription_records'
   | 'lab'
   | 'reports'
+  | 'patient_documents'
   | 'ai'
   | 'iot'
   | 'notifications'
@@ -46,6 +48,7 @@ const menuItems = [
   { id: 'prescription_records' as DoctorView, label: 'Prescription Records', icon: FileText },
   { id: 'lab' as DoctorView, label: 'Lab Diagnostics', icon: TestTube },
   { id: 'reports' as DoctorView, label: 'Reports & Analytics', icon: BarChart3 },
+  { id: 'patient_documents' as DoctorView, label: 'Patient Documents', icon: FileText },
   { id: 'ai' as DoctorView, label: 'AI Modules', icon: Brain },
   { id: 'iot' as DoctorView, label: 'IoT Integration', icon: Activity },
   { id: 'notifications' as DoctorView, label: 'Notifications', icon: Bell },
@@ -76,6 +79,8 @@ export function DoctorDashboard({ user }: DoctorDashboardProps) {
         return <LabDiagnostics userRole={user.role as any} />;
       case 'reports':
         return <ReportsAnalytics userRole={user.role as any} />;
+      case 'patient_documents':
+        return <PatientDocuments />;
       case 'ai':
         return <AIModules userRole={user.role as any} />;
       case 'iot':
@@ -96,14 +101,23 @@ export function DoctorDashboard({ user }: DoctorDashboardProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#F0F2F5] text-slate-900 selection:bg-blue-600/10">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Doctor Panel</h2>
-          <p className="text-sm text-gray-600 mt-1">{user.name}</p>
+      <div className="w-72 bg-white border-r border-slate-200 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+        <div className="p-8 border-b border-slate-100">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+              <Activity className="w-5 h-5 text-white" />
+            </div>
+            <h2 className="text-xl font-black tracking-tighter text-slate-900 uppercase italic">E-Clinic</h2>
+          </div>
+          <p className="text-sm text-slate-500 font-medium truncate">{user.name}</p>
+          <div className="mt-2 flex items-center gap-2">
+             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+             <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Medical Pro</span>
+          </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -111,31 +125,35 @@ export function DoctorDashboard({ user }: DoctorDashboardProps) {
               <button
                 key={item.id}
                 onClick={() => setCurrentView(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-gray-700 hover:bg-gray-50'
+                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 relative group ${isActive
+                  ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                   }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
+                <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+                <span className="font-bold text-sm tracking-wide">{item.label}</span>
               </button>
             );
           })}
         </nav>
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-6 border-t border-slate-100 bg-slate-50/50">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-rose-500 hover:bg-rose-50 transition-all font-bold group"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Logout</span>
+            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm">Secure Sign Out</span>
           </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-y-auto bg-[#F0F2F5] relative custom-scrollbar">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/[0.03] rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/[0.03] rounded-full blur-[120px] pointer-events-none" />
+        
+        <div className="p-10 relative z-10 max-w-[1600px] mx-auto">
           {renderContent()}
         </div>
       </div>

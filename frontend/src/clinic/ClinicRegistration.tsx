@@ -21,12 +21,14 @@ import { Label } from '../common/ui/label';
 import { Textarea } from '../common/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../common/ui/select';
 import { Checkbox } from '../common/ui/checkbox';
-import { Badge } from '../common/ui/badge';
 import { authService } from '../services/authService';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { UserRole } from '../common/types';
 
 interface ClinicRegistrationProps {
   onBack: () => void;
+  onSuccess?: () => void;
 }
 
 const steps = [
@@ -65,7 +67,8 @@ const facilities = [
 
 const paymentModes = ['Cash', 'UPI', 'Card', 'Insurance'];
 
-export function ClinicRegistration({ onBack }: ClinicRegistrationProps) {
+export function ClinicRegistration({ onBack, onSuccess }: ClinicRegistrationProps) {
+  const { login } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [mobileVerified, setMobileVerified] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -288,7 +291,7 @@ export function ClinicRegistration({ onBack }: ClinicRegistrationProps) {
 
     try {
       setLoading(true);
-      await authService.signUpClinic({
+      const response = await authService.signUpClinic({
         name: formData.clinicName,
         type: formData.clinicType,
         establishedYear: parseInt(formData.establishedYear),
@@ -302,11 +305,13 @@ export function ClinicRegistration({ onBack }: ClinicRegistrationProps) {
         email: formData.email,
         website: formData.website,
         medicalCouncilRegNo: formData.medicalCouncilRegNo,
-        accountName: formData.accountName,
-        accountNumber: formData.accountNumber,
-        ifsc: formData.ifsc,
-        pan: formData.pan.toUpperCase(),
-        gstin: formData.gstin.toUpperCase()
+        bankDetails: {
+          accountName: formData.accountName,
+          accountNumber: formData.accountNumber,
+          ifsc: formData.ifsc,
+          pan: formData.pan.toUpperCase(),
+          gstin: formData.gstin.toUpperCase()
+        }
       }, {
         services: selectedServices,
         facilities: selectedFacilities,
@@ -315,7 +320,25 @@ export function ClinicRegistration({ onBack }: ClinicRegistrationProps) {
       }, formData.password, files);
 
       toast.success('Registration successful!');
-      onBack();
+
+      // Auto-login
+      if (response.token && response.user) {
+        const userData = {
+          id: String(response.user.user_id),
+          full_name: response.user.full_name,
+          name: response.user.full_name,
+          email: response.user.email,
+          role: response.user.role as UserRole,
+          clinic_id: response.clinic?.id
+        };
+        login(userData, response.token);
+      }
+
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+        }, 1500);
+      }
     } catch (error: any) {
       console.error('Registration error:', error);
       toast.error(error.message || 'Failed to register clinic');

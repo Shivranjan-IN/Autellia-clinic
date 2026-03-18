@@ -19,6 +19,7 @@ export interface Patient {
     allergies?: string[];
     chronicDiseases?: string[];
     currentMedications?: string[];
+    prescriptions?: any[];
 }
 
 
@@ -144,6 +145,20 @@ class PatientService {
         }
     }
 
+    async getDashboardStats(): Promise<any> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/patients/dashboard/stats`, {
+                headers: await this.getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            return result.data;
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            return null;
+        }
+    }
+
     async getMyAppointments(): Promise<any[]> {
         try {
             const response = await fetch(`${API_BASE_URL}/api/appointments/my-appointments`, {
@@ -155,6 +170,95 @@ class PatientService {
         } catch (error) {
             console.error('Error fetching my appointments:', error);
             return [];
+        }
+    }
+
+    async getMyPrescriptions(patientId?: string): Promise<any[]> {
+        try {
+            // Use the /my endpoint which extracts patient from auth token
+            const response = await fetch(`${API_BASE_URL}/api/prescriptions/my`, {
+                headers: await this.getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            return result.data || [];
+        } catch (error) {
+            console.error('Error fetching my prescriptions:', error);
+            return [];
+        }
+    }
+
+    async getMyLabOrders(): Promise<any[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/lab/my-orders`, {
+                headers: await this.getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            return result.data || [];
+        } catch (error) {
+            console.error('Error fetching my lab orders:', error);
+            return [];
+        }
+    }
+
+    downloadPrescriptionUrl(prescriptionId: string): string {
+        return `${API_BASE_URL}/api/prescriptions/${prescriptionId}/download`;
+    }
+
+    async downloadWithAuth(url: string, filename: string): Promise<void> {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(url, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const objectUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+            throw error;
+        }
+    }
+
+    async updateAppointmentStatus(appointmentId: string, status: string): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/appointments/${appointmentId}/status`, {
+                method: 'PATCH',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify({ status })
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return true;
+        } catch (error) {
+            console.error('Error updating appointment status:', error);
+            return false;
+        }
+    }
+
+    async rescheduleAppointment(appointmentId: string, date: string, time: string): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/appointments/reschedule`, {
+                method: 'PUT',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify({
+                    appointment_id: appointmentId,
+                    appointment_date: date,
+                    appointment_time: time
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return true;
+        } catch (error) {
+            console.error('Error rescheduling appointment:', error);
+            return false;
         }
     }
 
@@ -174,7 +278,7 @@ class PatientService {
 
     async getMyDocuments(): Promise<any[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/patients/documents`, {
+            const response = await fetch(`${API_BASE_URL}/api/documents`, {
                 headers: await this.getAuthHeaders(),
             });
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -263,6 +367,24 @@ class PatientService {
         } catch (error) {
             console.error('Error uploading profile photo:', error);
             return null;
+        }
+    }
+
+    async deleteDocument(id: number): Promise<boolean> {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${API_BASE_URL}/api/documents/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return true;
+        } catch (error) {
+            console.error('Error deleting document:', error);
+            return false;
         }
     }
 

@@ -11,25 +11,37 @@ exports.getDoctorPatients = async (req, res, next) => {
         const doctorId = req.user.doctor_id;
         const { filter, startDate, endDate } = req.query;
 
-        let whereClause = { doctor_id: doctorId };
+        let whereClause = {};
 
-        if (filter === 'Today') {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            whereClause.created_at = { gte: today, lt: tomorrow };
-        } else if (filter === 'Custom' && startDate && endDate) {
-            whereClause.created_at = { gte: new Date(startDate), lte: new Date(endDate) };
-        } else if (filter === 'Upcoming') {
-            // Patients with upcoming appointments
+        if (filter === 'WithAppointments') {
+            // Requirement: dropdown show only patients with booked appointments with THIS doctor
             whereClause.appointments = {
                 some: {
-                    doctor_id: doctorId,
-                    appointment_date: { gte: new Date() },
-                    status: 'scheduled'
+                    doctor_id: doctorId
                 }
             };
+        } else {
+            // Default: patients assigned to this doctor
+            whereClause.doctor_id = doctorId;
+
+            if (filter === 'Today') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                whereClause.created_at = { gte: today, lt: tomorrow };
+            } else if (filter === 'Custom' && startDate && endDate) {
+                whereClause.created_at = { gte: new Date(startDate), lte: new Date(endDate) };
+            } else if (filter === 'Upcoming') {
+                // Patients with upcoming appointments
+                whereClause.appointments = {
+                    some: {
+                        doctor_id: doctorId,
+                        appointment_date: { gte: new Date() },
+                        status: 'scheduled'
+                    }
+                };
+            }
         }
 
         const patients = await prisma.patients.findMany({
@@ -115,25 +127,36 @@ exports.createDoctorAppointment = async (req, res, next) => {
         // If no patient_id, create new patient linked to this doctor
         if (!targetPatientId) {
             targetPatientId = `PAT-${Date.now()}`;
+            // Contact info (phone/email) are in users/emails/contact_numbers tables
+            // For ad-hoc patient creation in this controller, we'll just skip them if they aren't on the patients table
             await prisma.patients.create({
                 data: {
                     patient_id: targetPatientId,
                     full_name,
                     age: age ? parseInt(age) : null,
                     gender,
-                    phone,
-                    email,
                     doctor_id: doctorId
                 }
             });
         }
 
         const appointmentId = `APT-${Date.now()}`;
+        
+        // Find clinic_id from mapping if not provided
+        let clinicId = req.body.clinic_id;
+        if (!clinicId) {
+            const mapping = await prisma.doctor_clinic_mapping.findFirst({
+                where: { doctor_id: doctorId }
+            });
+            clinicId = mapping?.clinic_id;
+        }
+
         const newAppointment = await prisma.appointments.create({
             data: {
                 appointment_id: appointmentId,
                 patient_id: targetPatientId,
                 doctor_id: doctorId,
+                clinic_id: clinicId,
                 appointment_date: new Date(appointment_date),
                 appointment_time: appointment_time, // Expecting HH:mm or full ISO
                 type: type || 'Consultation',
@@ -189,22 +212,48 @@ exports.getDoctorPrescriptions = async (req, res, next) => {
         let whereClause = { doctor_id: doctorId };
 
         if (filter === 'Today') {
-            const today = new Date();
-            whereClause.created_at = today; // In data.sql it's a DATE type
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            whereClause.created_at = {
+                gte: startOfDay,
+                lte: endOfDay
+            };
         } else if (filter === 'Yesterday') {
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
-            whereClause.created_at = yesterday;
+            yesterday.setHours(0, 0, 0, 0);
+            const endOfYesterday = new Date(yesterday);
+            endOfYesterday.setHours(23, 59, 59, 999);
+            whereClause.created_at = {
+                gte: yesterday,
+                lte: endOfYesterday
+            };
         } else if (filter === 'Custom' && date) {
-            whereClause.created_at = new Date(date);
+            const customDate = new Date(date);
+            customDate.setHours(0, 0, 0, 0);
+            const endOfCustom = new Date(customDate);
+            endOfCustom.setHours(23, 59, 59, 999);
+            whereClause.created_at = {
+                gte: customDate,
+                lte: endOfCustom
+            };
+        } else if (filter === 'All' || !filter) {
+            // No date constraint
         }
 
         const prescriptions = await prisma.prescriptions.findMany({
             where: whereClause,
             include: {
-                patient: true,
+                patient: {
+                    include: {
+                        patient_documents: true
+                    }
+                },
                 medicines: true,
-                lab_tests: true
+                lab_tests: true,
+                appointments: true
             },
             orderBy: { created_at: 'desc' }
         });
@@ -230,9 +279,44 @@ exports.createDoctorPrescription = async (req, res, next) => {
         }
 
         const prescriptionId = `RX-${Date.now()}`;
-
         const medicinesList = Array.isArray(medicines) ? medicines : [];
         const labTestsList = Array.isArray(lab_tests) ? lab_tests : [];
+
+        // Determine clinic_id from appointment or doctor mapping
+        let clinicId = appointment.clinic_id;
+        if (!clinicId) {
+            const mapping = await prisma.doctor_clinic_mapping.findFirst({
+                where: { doctor_id: doctorId }
+            });
+            clinicId = mapping?.clinic_id;
+        }
+
+        // Process medicines to link with inventory if possible
+        const processedMedicines = await Promise.all(medicinesList.map(async (m) => {
+            const mName = m.name || m.medicine_name;
+            let medicineId = m.medicine_id || null;
+
+            // If no ID but we have a name and clinicId, try to find it in inventory
+            if (!medicineId && mName && clinicId) {
+                const invItem = await prisma.medicines.findFirst({
+                    where: {
+                        clinic_id: clinicId,
+                        medicine_name: { contains: mName, mode: 'insensitive' }
+                    }
+                });
+                if (invItem) {
+                    medicineId = invItem.medicine_id;
+                }
+            }
+
+            return {
+                medicine_name: mName,
+                medicine_id: medicineId,
+                dosage: m.dosage,
+                frequency: m.frequency,
+                duration: m.duration
+            };
+        }));
 
         const newPrescription = await prisma.prescriptions.create({
             data: {
@@ -240,16 +324,12 @@ exports.createDoctorPrescription = async (req, res, next) => {
                 patient_id,
                 doctor_id: doctorId,
                 appointment_id,
+                clinic_id: clinicId,
                 diagnosis,
                 notes,
                 follow_up_date: follow_up_date ? new Date(follow_up_date) : null,
                 medicines: {
-                    create: medicinesList.map(m => ({
-                        medicine_name: m.name || m.medicine_name,
-                        dosage: m.dosage,
-                        frequency: m.frequency,
-                        duration: m.duration
-                    }))
+                    create: processedMedicines
                 },
                 lab_tests: {
                     create: labTestsList.map(t => ({
@@ -376,26 +456,50 @@ exports.getAllDoctors = async (req, res, next) => {
     try {
         const doctors = await prisma.doctors.findMany({
             where: {
-                verification_status: 'VERIFIED'
+                verification_status: { in: ['VERIFIED', 'COMPLETE', 'verified', 'complete', 'PENDING', 'pending'] }
             },
             include: {
-                doctor_specializations: true
+                doctor_specializations: true,
+                doctor_clinic_mapping: {
+                    include: {
+                        clinics: true
+                    }
+                },
+                doctor_time_slots: true,
+                users: {
+                    include: {
+                        emails: { where: { is_primary: true } },
+                        contact_numbers: { where: { is_primary: true } }
+                    }
+                }
             }
         });
 
         // Map back to include specialization for the list view
-        const mappedDoctors = doctors.map(doctor => ({
-            id: doctor.id,
-            full_name: doctor.full_name,
-            email: doctor.email,
-            mobile: doctor.mobile,
-            specialization: doctor.doctor_specializations.length > 0 ? doctor.doctor_specializations[0].specialization : 'General Physician',
-            qualifications: doctor.qualifications,
-            experience_years: doctor.experience_years,
-            bio: doctor.bio,
-            profile_photo_url: doctor.profile_photo_url,
-            verification_status: doctor.verification_status
-        }));
+        const mappedDoctors = doctors.map(doctor => {
+            const clinic = doctor.doctor_clinic_mapping.length > 0 ? doctor.doctor_clinic_mapping[0].clinics?.clinic_name : 'Primary Clinic';
+            const schedule = doctor.doctor_time_slots.map(ts => {
+                const start = ts.start_time ? new Date(ts.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                const end = ts.end_time ? new Date(ts.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                return `${ts.day_of_week}: ${start} - ${end}`;
+            });
+
+            return {
+                id: doctor.id,
+                full_name: doctor.full_name,
+                email: doctor.users?.emails?.[0]?.email || '',
+                mobile: doctor.users?.contact_numbers?.[0]?.phone_number || '',
+                specialization: doctor.doctor_specializations.length > 0 ? doctor.doctor_specializations[0].specialization : 'General Physician',
+                qualifications: doctor.qualifications,
+                experience_years: doctor.experience_years,
+                bio: doctor.bio,
+                profile_photo_url: doctor.profile_photo_url,
+                verification_status: doctor.verification_status,
+                clinic_name: clinic,
+                schedule: schedule,
+                fees: 500 // Assuming default fee as it is not in the schema
+            };
+        });
 
         ResponseHandler.success(res, mappedDoctors, 'All verified doctors retrieved');
     } catch (error) {

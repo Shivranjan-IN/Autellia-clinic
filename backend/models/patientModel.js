@@ -44,7 +44,15 @@ class Patient {
     static async findByEmail(email) {
         try {
             const data = await prisma.patients.findFirst({
-                where: { email: email },
+                where: {
+                    users: {
+                        emails: {
+                            some: {
+                                email: email
+                            }
+                        }
+                    }
+                },
                 include: {
                     appointments: true,
                     prescriptions: true,
@@ -78,7 +86,15 @@ class Patient {
     static async findByPhone(phone) {
         try {
             const data = await prisma.patients.findFirst({
-                where: { phone: phone }
+                where: {
+                    users: {
+                        contact_numbers: {
+                            some: {
+                                phone_number: phone
+                            }
+                        }
+                    }
+                }
             });
             return data;
         } catch (error) {

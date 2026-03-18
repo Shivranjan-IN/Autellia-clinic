@@ -1,38 +1,20 @@
-require('dotenv').config();
-const { Pool } = require('pg');
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 async function checkUsers() {
-    try {
-        const res = await pool.query(`
-            SELECT user_id, full_name, email, role, created_at 
-            FROM users 
-            WHERE role = 'patient' 
-            ORDER BY created_at DESC 
-            LIMIT 10
-        `);
-        console.log('Recent patient users:');
-        console.table(res.rows);
-        
-        // Also check patients table
-        const patientRes = await pool.query(`
-            SELECT patient_id, user_id, full_name, email 
-            FROM patients 
-            ORDER BY patient_id DESC 
-            LIMIT 10
-        `);
-        console.log('Recent patients:');
-        console.table(patientRes.rows);
-        
-    } catch (err) {
-        console.error(err);
-    } finally {
-        await pool.end();
-    }
+  try {
+    const users = await prisma.users.findMany({
+      include: { roles: true }
+    });
+    console.log('Users in DB (with roles):');
+    users.forEach(u => {
+      console.log(`ID: ${u.user_id}, Name: ${u.full_name}, RoleID: ${u.role_id}, Role (Col): ${u.role}, RoleName (Join): ${u.roles?.role_name || 'NULL'}`);
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 checkUsers();

@@ -54,6 +54,9 @@ export async function getUserWithRole(): Promise<User | null> {
             name: data.data.full_name, // Also set name for convenience
             email: data.data.email,
             role: data.data.role as UserRole,
+            doctor_id: data.data.doctor_id,
+            patient_id: data.data.patient_id,
+            clinic_id: data.data.clinic_id
         };
         // Cache the user in localStorage
         localStorage.setItem('user', JSON.stringify(user));
@@ -170,6 +173,9 @@ export class AuthService {
             name: data.user.full_name, // Also set name for convenience
             email: data.user.email,
             role: data.user.role as UserRole,
+            doctor_id: data.user.doctor_id,
+            patient_id: data.user.patient_id,
+            clinic_id: data.user.clinic_id
         };
         localStorage.setItem('user', JSON.stringify(userData));
         console.log("User data stored:", userData);
@@ -189,7 +195,7 @@ export class AuthService {
         // Add all data fields
         Object.entries({ ...data, ...extraData, password }).forEach(([key, value]) => {
             if (value !== undefined && value !== null) {
-                if (Array.isArray(value)) {
+                if (typeof value === 'object') {
                     formData.append(key, JSON.stringify(value));
                 } else {
                     formData.append(key, String(value));
@@ -209,12 +215,23 @@ export class AuthService {
             body: formData,
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Clinic registration failed');
+        const responseData = await response.json();
+        
+        // Store token and user for auto-login
+        if (responseData.token) {
+            localStorage.setItem('auth_token', responseData.token);
+            const userData: User = {
+                id: String(responseData.user.user_id),
+                full_name: responseData.user.full_name,
+                name: responseData.user.full_name,
+                email: responseData.user.email,
+                role: 'clinic',
+                clinic_id: responseData.clinic.id
+            };
+            localStorage.setItem('user', JSON.stringify(userData));
         }
 
-        return await response.json();
+        return responseData;
     }
 
     // Sign up doctor
@@ -224,7 +241,11 @@ export class AuthService {
         // Add all data fields
         Object.entries(data).forEach(([key, value]) => {
             if (value !== undefined && value !== null) {
-                formData.append(key, String(value));
+                if (typeof value === 'object') {
+                    formData.append(key, JSON.stringify(value));
+                } else {
+                    formData.append(key, String(value));
+                }
             }
         });
 
@@ -248,8 +269,26 @@ export class AuthService {
             throw new Error(errorData.message || 'Doctor registration failed');
         }
 
-        return await response.json();
+        const responseData = await response.json();
+
+        // Store token and user for auto-login
+        if (responseData.token) {
+            localStorage.setItem('auth_token', responseData.token);
+            const userData: User = {
+                id: String(responseData.user.user_id),
+                full_name: responseData.user.full_name,
+                name: responseData.user.full_name,
+                email: responseData.user.email,
+                role: 'doctor',
+                doctor_id: responseData.doctor.id
+            };
+            localStorage.setItem('user', JSON.stringify(userData));
+        }
+
+        return responseData;
     }
+
+
 
     // Get current session
     async getSession() {

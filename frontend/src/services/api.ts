@@ -91,4 +91,14 @@ export const authAPI = {
     getCurrentUser: () => api.get('/auth/me'),
 };
 
+// Lab API
+export const labAPI = {
+    getAll: (params?: any) => api.get('/labs', { params }),
+    getById: (id: string) => api.get(`/labs/${id}`),
+    create: (data: any) => api.post('/labs', data),
+    update: (id: string, data: any) => api.put(`/labs/${id}`, data),
+    delete: (id: string) => api.delete(`/labs/${id}`),
+    getTestTypes: () => api.get('/labs/test-types'),
+};
+
 export default api;

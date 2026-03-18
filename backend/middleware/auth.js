@@ -19,22 +19,34 @@ const protect = async (req, res, next) => {
         // Use fallback secret to match authController
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
 
-        // Use prisma to find user
-        const user = await prisma.users.findUnique({
+        // Use prisma to find user with role relation
+        const dbUser = await prisma.users.findUnique({
             where: {
                 user_id: decoded.id
             },
-            select: {
-                user_id: true,
-                full_name: true,
-                email: true,
-                role: true
+            include: {
+                emails: {
+                    where: { is_primary: true },
+                    take: 1
+                },
+                roles: true  // include roles relation to get role_name
             }
         });
 
-        if (!user) {
+        if (!dbUser) {
             return ResponseHandler.unauthorized(res, 'User signature not found in registry');
         }
+
+        // role comes from the JWT token (set at login) OR from the roles relation
+        // JWT may have role embedded; fallback to roles relation
+        const roleName = decoded.role || dbUser.roles?.role_name || null;
+
+        const user = {
+            user_id: dbUser.user_id,
+            full_name: dbUser.full_name,
+            role: roleName,
+            email: dbUser.emails?.[0]?.email
+        };
 
         // Inject ID for data isolation based on role
         if (user.role === 'patient') {

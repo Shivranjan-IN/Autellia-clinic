@@ -9,23 +9,69 @@ export interface Clinic {
     establishment_year?: number;
     tagline?: string;
     description?: string;
-    address: string;
     landmark?: string;
-    pin_code: string;
-    city: string;
-    state: string;
-    mobile: string;
-    email: string;
     website?: string;
+    mobile_verified?: boolean;
+    email_verified?: boolean;
     medical_council_reg_no: string;
-    bank_account_name?: string;
-    bank_account_number?: string;
-    ifsc_code?: string;
-    pan_number?: string;
-    gstin?: string;
+    terms_accepted?: boolean;
+    declaration_accepted?: boolean;
     verification_status: string;
     created_at?: string;
     updated_at?: string;
+    user_id?: number;
+    address_id?: number;
+    // Flattened from related tables
+    email?: string;
+    mobile?: string;
+    pan_number?: string;
+    gstin?: string;
+    bank_account_name?: string;
+    bank_account_number?: string;
+    ifsc_code?: string;
+    // Address
+    address?: {
+        address_id: number;
+        address?: string;
+        city?: string;
+        state?: string;
+        pin_code?: string;
+    };
+    // Related data
+    clinic_services?: { id: number; service?: string }[];
+    clinic_facilities?: { id: number; facility?: string }[];
+    clinic_payment_modes?: { id: number; payment_mode?: string }[];
+    clinic_booking_modes?: { id: number; booking_mode?: string }[];
+    clinic_documents?: any[];
+    doctor_clinic_mapping?: any[];
+    stats?: {
+        total_doctors: number;
+        total_staff: number;
+        total_appointments: number;
+        total_patients: number;
+    };
+}
+
+export interface SearchPatientResult {
+    patient_id: string;
+    full_name: string;
+    gender?: string;
+    date_of_birth?: string;
+    blood_group?: string;
+    abha_id?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    user_id?: number;
+    profile_photo_url?: string;
+}
+
+export interface ClinicDoctor {
+    id: number;
+    full_name: string;
+    specializations: string;
+    profile_photo_url?: string;
 }
 
 class ClinicService {
@@ -57,7 +103,7 @@ class ClinicService {
         }
     }
 
-    async updateProfile(updates: Partial<Clinic>): Promise<Clinic | null> {
+    async updateProfile(updates: Partial<Clinic> & Record<string, any>): Promise<Clinic | null> {
         try {
             const response = await fetch(`${API_BASE_URL}/api/clinics/profile`, {
                 method: 'PUT',
@@ -74,6 +120,88 @@ class ClinicService {
         } catch (error) {
             console.error('Error updating clinic profile:', error);
             throw error;
+        }
+    }
+
+    // Patient Search
+    async searchPatient(query: string): Promise<SearchPatientResult[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/patients/search?query=${encodeURIComponent(query)}`, {
+                headers: await this.getAuthHeaders(),
+            });
+            const result = await response.json();
+            return result.data || [];
+        } catch (error) {
+            console.error('Error searching patients:', error);
+            return [];
+        }
+    }
+
+    // Add new patient
+    async addNewPatient(patientData: {
+        full_name: string;
+        email?: string;
+        phone?: string;
+        gender?: string;
+        date_of_birth?: string;
+        blood_group?: string;
+        abha_id?: string;
+        address?: string;
+    }): Promise<{ patient: any; is_existing: boolean } | null> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/patients`, {
+                method: 'POST',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify(patientData),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to add patient');
+            }
+            return result.data;
+        } catch (error) {
+            console.error('Error adding patient:', error);
+            throw error;
+        }
+    }
+
+    // Book appointment (patient + doctor mapping)
+    async bookAppointment(data: {
+        patient_id: string;
+        doctor_id: number;
+        appointment_date: string;
+        appointment_time: string;
+        type?: string;
+        reason?: string;
+    }): Promise<any> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/appointments/book`, {
+                method: 'POST',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify(data),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to book appointment');
+            }
+            return result.data;
+        } catch (error) {
+            console.error('Error booking appointment:', error);
+            throw error;
+        }
+    }
+
+    // Get clinic doctors for booking dropdown
+    async getClinicDoctorsList(): Promise<ClinicDoctor[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/doctors/list`, {
+                headers: await this.getAuthHeaders(),
+            });
+            const result = await response.json();
+            return result.data || [];
+        } catch (error) {
+            console.error('Error fetching clinic doctors list:', error);
+            return [];
         }
     }
 
@@ -113,15 +241,10 @@ class ClinicService {
 
     async getAllPatients(): Promise<any[]> {
         try {
-            // Reusing existing endpoint or adding a simpler one if needed
-            // For now, we'll fetch today's and filter or just use a dedicated one if we had it.
-            // Actually, let's assume getPatients('today') or similar for base access if needed
-            // But usually we need all patients. I'll use a generic patients endpoint if it exists.
             const response = await fetch(`${API_BASE_URL}/api/clinics/appointments`, {
                 headers: await this.getAuthHeaders(),
             });
             const result = await response.json();
-            // Extract unique patients from appointments or use a dedicated patient list if available
             return result.data?.map((a: any) => a.patient) || [];
         } catch (error) {
             console.error('Error fetching all patients:', error);
@@ -140,6 +263,20 @@ class ClinicService {
         } catch (error) {
             console.error('Error fetching queue:', error);
             return [];
+        }
+    }
+
+    async updateAppointmentStatus(appointmentId: string, status: string): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/appointments/${appointmentId}/status`, {
+                method: 'PATCH',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify({ status }),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error updating appointment status:', error);
+            return false;
         }
     }
 
@@ -336,6 +473,19 @@ class ClinicService {
             return result.data || [];
         } catch (error) {
             console.error('Error fetching billing data:', error);
+            return [];
+        }
+    }
+
+    async searchBillingPatients(query: string): Promise<any[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/billing/patients/search?query=${encodeURIComponent(query)}`, {
+                headers: await this.getAuthHeaders(),
+            });
+            const result = await response.json();
+            return result.data || [];
+        } catch (error) {
+            console.error('Error searching billing patients:', error);
             return [];
         }
     }

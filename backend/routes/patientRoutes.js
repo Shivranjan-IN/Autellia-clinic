@@ -11,6 +11,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/profile', patientController.getPatientProfile);
+router.get('/dashboard/stats', patientController.getDashboardStats);
 router.put('/profile', patientController.updatePatientProfile);
 // Use memory upload for profile photos (stores binary in database)
 router.post('/profile/photo', upload.single('profile_photo'), patientController.uploadProfilePhoto);
@@ -48,5 +49,9 @@ router.delete(
 
 // Get patient profile photo from database
 router.get('/profile/photo/:patientId', patientController.getProfilePhoto);
+
+// AI Insight routes
+router.post('/ai/explain-report', patientController.explainReport);
+router.post('/ai/explain-prescription', patientController.explainPrescription);
 
 module.exports = router;

@@ -3,18 +3,33 @@ const prisma = new PrismaClient();
 
 const labModel = {
     createLabOrder: async (orderData) => {
+        // Only include fields that exist in the lab_orders table schema
+        const validData = {
+            patient_id: orderData.patient_id,
+            doctor_id: orderData.doctor_id,
+            clinic_id: orderData.clinic_id,
+            test_type_id: orderData.test_type_id,
+            priority: orderData.priority || 'Normal',
+            price: orderData.price,
+            notes: orderData.notes,
+            status: orderData.status || 'Pending',
+            order_date: orderData.order_date ? new Date(orderData.order_date) : new Date()
+        };
+
         return await prisma.lab_orders.create({
             data: {
                 lab_order_id: `LAB-${Date.now()}`,
-                ...orderData,
-                status: orderData.status || 'Pending',
-                order_date: new Date()
+                ...validData
             },
             include: {
                 patient: {
                     select: {
                         full_name: true,
-                        email: true
+                        users: {
+                            include: {
+                                emails: { where: { is_primary: true } }
+                            }
+                        }
                     }
                 },
                 doctor: {
@@ -39,14 +54,26 @@ const labModel = {
                 patient: {
                     select: {
                         full_name: true,
-                        email: true
+                        users: {
+                            include: {
+                                emails: { where: { is_primary: true } }
+                            }
+                        }
                     }
                 },
                 doctor: {
                     select: {
                         full_name: true
                     }
-                }
+                },
+                lab_test_types: true,
+                clinic: {
+                    select: {
+                        clinic_name: true
+                    }
+                },
+                lab_test_results: true,
+                lab_samples: true
             },
             orderBy: {
                 order_date: 'desc'
@@ -61,17 +88,29 @@ const labModel = {
                 patient: {
                     select: {
                         full_name: true,
-                        email: true,
-                        phone: true,
                         age: true,
-                        gender: true
+                        gender: true,
+                        users: {
+                            include: {
+                                emails: { where: { is_primary: true } },
+                                contact_numbers: { where: { is_primary: true } }
+                            }
+                        }
                     }
                 },
                 doctor: {
                     select: {
                         full_name: true
                     }
-                }
+                },
+                lab_test_types: true,
+                clinic: {
+                    select: {
+                        clinic_name: true
+                    }
+                },
+                lab_test_results: true,
+                lab_samples: true
             }
         });
     },
@@ -89,6 +128,12 @@ const labModel = {
     deleteLabOrder: async (id) => {
         return await prisma.lab_orders.delete({
             where: { lab_order_id: id }
+        });
+    },
+
+    getTestTypes: async () => {
+        return await prisma.lab_test_types.findMany({
+            orderBy: { test_name: 'asc' }
         });
     }
 };

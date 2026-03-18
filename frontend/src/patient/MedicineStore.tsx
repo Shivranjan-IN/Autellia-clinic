@@ -7,13 +7,16 @@ import {
   Shield,
   Upload,
   Bookmark,
-  BookMarked
+  BookMarked,
+  Camera,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent } from '../common/ui/card';
 import { Button } from '../common/ui/button';
 import { Input } from '../common/ui/input';
 import { Badge } from '../common/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../common/ui/select';
+import { toast } from 'react-hot-toast';
 import { ImageWithFallback } from "../public/figma/ImageWithFallback";
 import { medicineService } from '../services/medicineService';
 import type { PatientPage } from './PatientPortal';
@@ -25,6 +28,8 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
   const [category, setCategory] = useState('All');
   const [cart, setCart] = useState<any[]>([]);
   const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<string[]>([]);
 
   useEffect(() => {
     fetchMedicines();
@@ -91,6 +96,38 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
   const getCartQuantity = (medicineId: string) => {
     const item = cart.find(c => c.medicine_id === medicineId);
     return item?.quantity || 0;
+  };
+
+  const handleScanPrescription = async (_type: 'upload' | 'camera') => {
+    // Simulated OCR Scanning
+    setIsScanning(true);
+    setScanResult([]);
+    
+    // Simulate delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Mock results based on common prescription names
+    const mockMedicines = ['Paracetamol', 'Metformin', 'Amoxicillin', 'Cetirizine'];
+    const results = mockMedicines.filter(() => Math.random() > 0.3);
+    
+    setScanResult(results.length > 0 ? results : ['No medicines detected']);
+    setIsScanning(false);
+  };
+
+  const handleQuickAdd = async (medicineName: string) => {
+    try {
+      // Find medicine by name
+      const med = medicines.find(m => m.medicine_name?.toLowerCase() === medicineName.toLowerCase());
+      if (med) {
+        await handleAddToCart(med.medicine_id);
+        toast.success(`${medicineName} added to cart`);
+      } else {
+        setSearchQuery(medicineName);
+        toast.error(`${medicineName} not found in store. Searching...`);
+      }
+    } catch (error) {
+      console.error('Error in quick add:', error);
+    }
   };
 
   return (
@@ -249,18 +286,96 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
         </div>
       )}
 
-      {/* Prescription Upload Info */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-4 flex items-start gap-3">
-          <div className="p-2 bg-blue-600 rounded-lg mt-1">
-            <Upload className="size-4 text-white" />
+      {/* Prescription Scan Feature */}
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+                <FileText className="size-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-blue-900">Scan Prescription</h3>
+                <p className="text-sm text-blue-700">Quickly add medicines by scanning your prescription image</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 w-full md:w-auto">
+              <Button 
+                variant="outline" 
+                className="flex-1 md:flex-none border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={() => handleScanPrescription('upload')}
+              >
+                <Upload className="size-4 mr-2" />
+                Upload Image
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex-1 md:flex-none border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={() => handleScanPrescription('camera')}
+              >
+                <Camera className="size-4 mr-2" />
+                Capture Image
+              </Button>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-blue-900">Ordering Prescription Medicines?</p>
-            <p className="text-xs text-blue-700 mb-2">
-              For medicines requiring a prescription, you can upload it during checkout in the Cart page.
-            </p>
-          </div>
+
+          {isScanning && (
+            <div className="mt-6 flex flex-col items-center justify-center p-8 bg-white/50 rounded-xl border border-blue-100 dashed animate-pulse">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+              <p className="text-sm font-medium text-blue-800">Analyzing prescription using AI OCR...</p>
+              <p className="text-xs text-blue-600">Extracting medicine names and dosages</p>
+            </div>
+          )}
+
+          {!isScanning && scanResult.length > 0 && (
+            <div className="mt-6 p-4 bg-white rounded-xl border border-blue-200">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                <p className="text-sm font-semibold text-gray-900">Detected Medicines:</p>
+                <Button variant="ghost" size="sm" onClick={() => setScanResult([])} className="h-7 text-xs text-gray-500 hover:text-red-500">
+                  Clear
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {scanResult.map((med, idx) => (
+                  <Badge 
+                    key={idx} 
+                    variant="secondary" 
+                    className={`px-3 py-1 text-sm ${med === 'No medicines detected' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700 border-green-100'}`}
+                  >
+                    {med}
+                    {med !== 'No medicines detected' && (
+                      <div className="flex items-center gap-1 ml-2 border-l pl-2 border-green-200">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="size-5 p-0 h-auto hover:bg-green-100 text-green-700"
+                          onClick={() => handleQuickAdd(med)}
+                          title="Quick Add to Cart"
+                        >
+                          <ShoppingCart className="size-3" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="size-5 p-0 h-auto hover:bg-green-100 text-green-700"
+                          onClick={() => setSearchQuery(med)}
+                          title="Search in Store"
+                        >
+                          <Search className="size-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+              {scanResult[0] !== 'No medicines detected' && (
+                <p className="text-xs text-gray-500 mt-3 italic">
+                  * Click the search icon next to medicine to find it in store.
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

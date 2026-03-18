@@ -36,22 +36,6 @@ interface PatientProfileProps {
   onProfileUpdate?: (updatedPatient: PatientUser) => void;
 }
 
-const documents = [
-  {
-    id: 1,
-    name: 'Insurance_Card.pdf',
-    type: 'Insurance',
-    date: '2025-01-10',
-    size: '2.4 MB'
-  },
-  {
-    id: 2,
-    name: 'Medical_Record_2024.pdf',
-    type: 'Medical Record',
-    date: '2024-12-15',
-    size: '1.8 MB'
-  }
-];
 
 export function PatientProfile({ patient: initialPatient, onProfileUpdate }: PatientProfileProps) {
   const [patient, setPatient] = useState(initialPatient);
@@ -75,7 +59,11 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
   const [newDisease, setNewDisease] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docType, setDocType] = useState('Medical Record');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPatient(initialPatient);
@@ -94,6 +82,44 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
     setMedications(initialPatient.currentMedications || []);
     setChronicDiseases(initialPatient.chronicDiseases || []);
   }, [initialPatient]);
+
+  // Fetch documents on mount
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const data = await patientService.getMyDocuments();
+      setDocuments(data || []);
+    } catch (e) {
+      console.error('Error fetching documents:', e);
+    }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setDocUploading(true);
+      await patientService.uploadDocument(file, docType);
+      await fetchDocuments();
+    } catch (err: any) {
+      console.error('Error uploading document:', err);
+    } finally {
+      setDocUploading(false);
+      if (docFileInputRef.current) docFileInputRef.current.value = '';
+    }
+  };
+
+  const handleDocumentDelete = async (docId: number) => {
+    try {
+      await patientService.deleteDocument(docId);
+      setDocuments(docs => docs.filter(d => d.id !== docId));
+    } catch (err) {
+      console.error('Error deleting document:', err);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -406,7 +432,8 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                       <Label>ABHA Health ID</Label>
                       <div className="flex items-center gap-2 mt-2">
                         <Input
-                          value={patient.abhaId}
+                          value={formData.abha_id}
+                          onChange={(e) => setFormData({ ...formData, abha_id: e.target.value })}
                           disabled={!isEditing}
                           className="font-mono bg-white"
                         />
@@ -421,7 +448,8 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                         Blood Group
                       </Label>
                       <Input
-                        defaultValue={patient.bloodGroup || 'O+'}
+                        value={formData.blood_group}
+                        onChange={(e) => setFormData({ ...formData, blood_group: e.target.value })}
                         disabled={!isEditing}
                         className="mt-2 bg-white"
                       />
@@ -571,9 +599,13 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                 </Card>
 
                 {isEditing && (
-                  <Button className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700">
+                  <Button 
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
+                  >
                     <Save className="size-4 mr-2" />
-                    Save Medical Details
+                    {saving ? 'Saving...' : 'Save Medical Details'}
                   </Button>
                 )}
               </TabsContent>
@@ -592,11 +624,33 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                       <p className="text-sm text-gray-600 mb-4">
                         Upload Medical Records, Insurance Card, or other documents
                       </p>
-                      <Button className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700">
-                        <Upload className="size-4 mr-2" />
-                        Choose Files
-                      </Button>
-                      <p className="text-xs text-gray-500 mt-3">
+                      <div className="flex items-center justify-center gap-2 mb-4">
+                        <select
+                          value={docType}
+                          onChange={e => setDocType(e.target.value)}
+                          className="border border-pink-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
+                        >
+                          {['Medical Record', 'Insurance', 'Lab Report', 'Prescription', 'Other'].map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="file"
+                          ref={docFileInputRef}
+                          onChange={handleDocumentUpload}
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          className="hidden"
+                        />
+                        <Button
+                          className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
+                          onClick={() => docFileInputRef.current?.click()}
+                          disabled={docUploading}
+                        >
+                          <Upload className="size-4 mr-2" />
+                          {docUploading ? 'Uploading...' : 'Choose File'}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500">
                         Supported formats: PDF, JPG, PNG (Max 10MB)
                       </p>
                     </div>
@@ -605,44 +659,57 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
 
                 {/* Documents List */}
                 <div className="space-y-3">
-                  {documents.map((doc) => (
-                    <Card key={doc.id} className="border-pink-200 hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-pink-100 rounded-lg">
-                              <File className="size-5 text-pink-600" />
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{doc.name}</h4>
-                              <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
-                                <Badge variant="outline" className="text-xs">
-                                  {doc.type}
-                                </Badge>
-                                <span>{doc.date}</span>
-                                <span>{doc.size}</span>
+                  {documents.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic text-center py-4">No documents uploaded yet.</p>
+                  ) : (
+                    documents.map((doc) => (
+                      <Card key={doc.id} className="border-pink-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-pink-100 rounded-lg">
+                                <File className="size-5 text-pink-600" />
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-900">{doc.file_name}</h4>
+                                <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                                  <Badge variant="outline" className="text-xs">
+                                    {doc.document_type}
+                                  </Badge>
+                                  <span>{doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : ''}</span>
+                                  {doc.file_size && <span>{Math.round(doc.file_size / 1024)} KB</span>}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline">
-                              <Eye className="size-4 mr-1" />
-                              View
-                            </Button>
-                            <Button size="sm" variant="outline" className="bg-pink-50 border-pink-300 text-pink-600 hover:bg-pink-100">
-                              <Download className="size-4 mr-1" />
-                              Download
-                            </Button>
-                            {isEditing && (
-                              <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                            <div className="flex items-center gap-2">
+                              {doc.file_url && (
+                                <Button size="sm" variant="outline" onClick={() => window.open(doc.file_url, '_blank')}>
+                                  <Eye className="size-4 mr-1" />
+                                  View
+                                </Button>
+                              )}
+                              {doc.file_url && (
+                                <a href={doc.file_url} download={doc.file_name}>
+                                  <Button size="sm" variant="outline" className="bg-pink-50 border-pink-300 text-pink-600 hover:bg-pink-100">
+                                    <Download className="size-4 mr-1" />
+                                    Download
+                                  </Button>
+                                </a>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDocumentDelete(doc.id)}
+                              >
                                 <X className="size-4" />
                               </Button>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

@@ -62,3 +62,66 @@ exports.getPatientPrescriptions = async (req, res, next) => {
         next(error);
     }
 };
+
+// Patient gets their own prescriptions (no need to pass patient_id in URL)
+exports.getMyPrescriptions = async (req, res, next) => {
+    try {
+        const patientId = req.user.patient_id;
+        if (!patientId) {
+            return ResponseHandler.badRequest(res, 'Patient ID not found in session');
+        }
+        const prescriptions = await Prescription.findByPatient(patientId);
+        ResponseHandler.success(res, prescriptions, 'Your prescriptions retrieved');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Download prescription as plain text (simple implementation without PDF libraries)
+exports.downloadPrescription = async (req, res, next) => {
+    try {
+        const prescription = await Prescription.findById(req.params.id);
+        if (!prescription) {
+            return res.status(404).json({ success: false, message: 'Prescription not found' });
+        }
+
+        // Check patient ownership if patient role
+        if (req.user.role === 'patient' && prescription.patient_id !== req.user.patient_id) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        // Build a text-based prescription document
+        const doctorName = prescription.doctor?.full_name || 'Dr. Unknown';
+        const patientName = prescription.patient?.full_name || 'Patient';
+        const date = prescription.created_at ? new Date(prescription.created_at).toLocaleDateString('en-IN') : 'N/A';
+        const medicines = prescription.medicines || [];
+
+        let content = `PRESCRIPTION\n`;
+        content += `${'='.repeat(50)}\n`;
+        content += `Doctor: ${doctorName}\n`;
+        content += `Patient: ${patientName}\n`;
+        content += `Date: ${date}\n`;
+        content += `Prescription ID: ${prescription.prescription_id}\n`;
+        content += `Diagnosis: ${prescription.diagnosis || 'N/A'}\n`;
+        content += `Notes: ${prescription.notes || 'N/A'}\n`;
+        content += `Follow-up: ${prescription.follow_up_date ? new Date(prescription.follow_up_date).toLocaleDateString('en-IN') : 'N/A'}\n`;
+        content += `\nMEDICINES:\n${'-'.repeat(30)}\n`;
+
+        medicines.forEach((med, idx) => {
+            content += `${idx + 1}. ${med.medicine_name || 'N/A'}\n`;
+            content += `   Dosage: ${med.dosage || 'N/A'}\n`;
+            content += `   Frequency: ${med.frequency || 'N/A'}\n`;
+            content += `   Duration: ${med.duration || 'N/A'}\n`;
+        });
+
+        content += `\n${'='.repeat(50)}\n`;
+        content += `This is a computer-generated prescription.\n`;
+
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', `attachment; filename="prescription-${prescription.prescription_id}.txt"`);
+        res.send(content);
+    } catch (error) {
+        next(error);
+    }
+};
+

@@ -1,32 +1,31 @@
 import { useState, useEffect } from 'react';
 import { patientService } from '../services/patientService';
+import api from '../lib/api';
+import toast from 'react-hot-toast';
 import {
-  Calendar,
-  Video,
-  Building2,
   Search,
   Filter,
+  Calendar,
   Download,
-  CheckCircle,
-  Clock,
+  Eye,
+  Activity,
   XCircle,
-  MoreHorizontal,
-  X,
-  CalendarDays,
-  Phone,
-  Mail
+  Video,
+  Building2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../common/ui/card';
+import { Card, CardContent } from '../common/ui/card';
 import { Button } from '../common/ui/button';
 import { Input } from '../common/ui/input';
 import { Badge } from '../common/ui/badge';
 import { Avatar, AvatarFallback } from '../common/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../common/ui/select';
 import { Label } from '../common/ui/label';
-import type { PatientUser } from '../PatientPortal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../common/ui/dialog';
+import type { PatientPage, PatientUser } from './PatientPortal';
 
 interface MyAppointmentsProps {
   patient: PatientUser;
+  onNavigate: (page: PatientPage) => void;
 }
 
 interface Appointment {
@@ -39,39 +38,105 @@ interface Appointment {
   doctor: {
     full_name: string;
     qualifications: string;
+    currentMedications?: string[];
+    prescriptions?: any[];
   };
   clinic?: {
     clinic_name: string;
   };
+  doctor_id: string;
+  prescription_id?: string;
+  lab_order_id?: string;
 }
 
-export function MyAppointments({ patient }: MyAppointmentsProps) {
+interface MyAppointmentsProps {
+  patient: PatientUser;
+  onNavigate: (page: PatientPage) => void;
+}
+
+export function MyAppointments({ patient, onNavigate }: MyAppointmentsProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        setLoading(true);
         const data = await patientService.getMyAppointments();
-        console.log('PATIENT APPOINTMENTS:', data);
         setAppointments(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error fetching appointments:', err);
-        setError('Failed to load appointments');
-        setAppointments([]);
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching appointments for patient:', patient.id, error);
       }
     };
 
-    if (patient.id) {
-      fetchAppointments();
-    }
+    fetchAppointments();
   }, [patient.id]);
+
+  const [rescheduleApt, setRescheduleApt] = useState<Appointment | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<string>('');
+  const [rescheduleTime, setRescheduleTime] = useState<string>('');
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [cancelApt, setCancelApt] = useState<Appointment | null>(null);
+  const [processing, setProcessing] = useState(false);
+
+  const fetchAvailableSlots = async (doctorId: string, dateStr: string) => {
+    try {
+      setLoadingSlots(true);
+      const res = await api.get(`/appointments/booked-slots/${doctorId}/${dateStr}`);
+      const booked = res.data?.data?.bookedSlots || [];
+      const allSlots = [
+        '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+        '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'
+      ];
+      setAvailableSlots(allSlots.filter(s => !booked.includes(s)));
+    } catch (e) {
+      console.error('Failed to fetch slots', e);
+      setAvailableSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rescheduleApt && rescheduleDate) {
+      fetchAvailableSlots(rescheduleApt.doctor_id, rescheduleDate);
+    }
+  }, [rescheduleDate, rescheduleApt]);
+
+  const handleReschedule = async () => {
+    if (!rescheduleApt || !rescheduleDate || !rescheduleTime) {
+      toast.error('Select Date and Time');
+      return;
+    }
+    setProcessing(true);
+    const success = await patientService.rescheduleAppointment(rescheduleApt.appointment_id, rescheduleDate, rescheduleTime);
+    setProcessing(false);
+    if (success) {
+      toast.success('Appointment rescheduled');
+      setRescheduleApt(null);
+      // Re-fetch
+      const data = await patientService.getMyAppointments();
+      setAppointments(Array.isArray(data) ? data : []);
+    } else {
+      toast.error('Failed to reschedule');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!cancelApt) return;
+    setProcessing(true);
+    const success = await patientService.updateAppointmentStatus(cancelApt.appointment_id, 'cancelled');
+    setProcessing(false);
+    if (success) {
+      toast.success('Appointment cancelled');
+      setCancelApt(null);
+      const data = await patientService.getMyAppointments();
+      setAppointments(Array.isArray(data) ? data : []);
+    } else {
+      toast.error('Failed to cancel appointment');
+    }
+  };
 
   const filteredAppointments = appointments.filter(apt => {
     const matchesSearch =
@@ -112,7 +177,10 @@ export function MyAppointments({ patient }: MyAppointmentsProps) {
           <h1 className="font-semibold text-gray-900 mb-1">My Appointments</h1>
           <p className="text-sm text-gray-600">Manage and track all your appointments</p>
         </div>
-        <Button className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700">
+        <Button 
+          className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
+          onClick={() => onNavigate('book-appointment')}
+        >
           <Calendar className="size-4 mr-2" />
           Book New Appointment
         </Button>
@@ -266,20 +334,44 @@ export function MyAppointments({ patient }: MyAppointmentsProps) {
                               </Button>
                             )}
                             {apt.status === 'completed' && (
-                              <Button size="sm" variant="outline">
-                                <Download className="size-4 mr-1" />
-                                Report
-                              </Button>
+                              <div className="flex flex-col gap-1">
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" className="text-blue-600 border-blue-200" onClick={() => onNavigate('prescriptions')}>
+                                    <Eye className="size-4 mr-1" />
+                                    View Prescription
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-green-600 border-green-200"
+                                    onClick={() => apt.prescription_id && patientService.downloadWithAuth(
+                                      patientService.downloadPrescriptionUrl(apt.prescription_id),
+                                      `prescription-${apt.prescription_id}.txt`
+                                    )}
+                                  >
+                                    <Download className="size-4 mr-1" />
+                                    Download RX
+                                  </Button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" className="text-purple-600 border-purple-200" onClick={() => onNavigate('reports')}>
+                                    <Activity className="size-4 mr-1" />
+                                    View Lab Report
+                                  </Button>
+                                </div>
+                              </div>
                             )}
                             {apt.status === 'scheduled' && !canJoin && (
-                              <Button size="sm" variant="outline">
-                                <Calendar className="size-4 mr-1" />
-                                Reschedule
-                              </Button>
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => setRescheduleApt(apt)}>
+                                  <Calendar className="size-4 mr-1" />
+                                  Reschedule
+                                </Button>
+                                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setCancelApt(apt)}>
+                                  <XCircle className="size-4" />
+                                </Button>
+                              </>
                             )}
-                            <Button size="sm" variant="ghost">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -291,6 +383,75 @@ export function MyAppointments({ patient }: MyAppointmentsProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Reschedule Dialog */}
+      <Dialog open={!!rescheduleApt} onOpenChange={() => setRescheduleApt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reschedule Appointment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select New Date</Label>
+              <Input 
+                type="date" 
+                min={new Date().toISOString().split('T')[0]} 
+                value={rescheduleDate} 
+                onChange={(e) => {
+                  setRescheduleDate(e.target.value);
+                  setRescheduleTime('');
+                }} 
+              />
+            </div>
+            {rescheduleDate && (
+              <div>
+                <Label>Select New Time</Label>
+                {loadingSlots ? (
+                  <p className="text-sm text-gray-500">Loading available slots...</p>
+                ) : availableSlots.length === 0 ? (
+                  <p className="text-sm text-red-500">No slots available on this date.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {availableSlots.map(slot => (
+                      <Button
+                        key={slot}
+                        type="button"
+                        variant={rescheduleTime === slot ? 'default' : 'outline'}
+                        className={`text-sm ${rescheduleTime === slot ? 'bg-pink-600 text-white' : ''}`}
+                        onClick={() => setRescheduleTime(slot)}
+                      >
+                        {slot}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleApt(null)}>Close</Button>
+            <Button disabled={processing || !rescheduleDate || !rescheduleTime} onClick={handleReschedule} className="bg-pink-600 hover:bg-pink-700">
+              {processing ? 'Rescheduling...' : 'Confirm Reschedule'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Dialog */}
+      <Dialog open={!!cancelApt} onOpenChange={() => setCancelApt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Appointment</DialogTitle>
+          </DialogHeader>
+          <p>Are you sure you want to cancel this appointment?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelApt(null)}>No, Keep It</Button>
+            <Button disabled={processing} className="bg-red-600 hover:bg-red-700 text-white" onClick={handleCancel}>
+              {processing ? 'Cancelling...' : 'Yes, Cancel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

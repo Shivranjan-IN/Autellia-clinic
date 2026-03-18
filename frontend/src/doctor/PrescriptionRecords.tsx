@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     FileText, Search, Eye, Download, Calendar, User, Pill,
-    X, Brain, Filter, Shield, AlertCircle
+    X, Brain, Filter, Shield, AlertCircle, Activity
 } from 'lucide-react';
 import { doctorService } from '../services/doctorService';
 
@@ -9,7 +9,7 @@ export function PrescriptionRecords() {
     const [prescriptions, setPrescriptions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filter, setFilter] = useState('Today');
+    const [filter, setFilter] = useState('All');
     const [customDate, setCustomDate] = useState('');
     const [selectedRx, setSelectedRx] = useState<any | null>(null);
 
@@ -20,22 +20,26 @@ export function PrescriptionRecords() {
     const fetchPrescriptions = async () => {
         setLoading(true);
         try {
-            const data = await doctorService.getDoctorPrescriptions(
+            let data = await doctorService.getDoctorPrescriptions(
                 filter,
                 filter === 'Custom' ? customDate : undefined
             );
-            setPrescriptions(data);
+            
+            setPrescriptions(data || []);
         } catch (error) {
             console.error('Error fetching prescriptions:', error);
+            setPrescriptions([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const filtered = prescriptions.filter(rx =>
-        rx.patient?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rx.prescription_id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = (prescriptions || []).filter(rx => {
+        const patientName = rx.patient?.full_name?.toLowerCase() || '';
+        const rxId = rx.prescription_id?.toString().toLowerCase() || '';
+        const lowerSearch = searchTerm.toLowerCase();
+        return patientName.includes(lowerSearch) || rxId.includes(lowerSearch);
+    });
 
     return (
         <div className="p-4 sm:p-6 space-y-6 bg-gray-50 min-h-screen">
@@ -84,7 +88,7 @@ export function PrescriptionRecords() {
 
                 <div className="flex flex-wrap gap-2">
                     <div className="flex bg-gray-100 p-1 rounded-xl">
-                        {['Today', 'Yesterday', 'Custom'].map(f => (
+                        {['All', 'Today', 'Yesterday', 'Custom'].map(f => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
@@ -125,7 +129,7 @@ export function PrescriptionRecords() {
                     </div>
                 ) : (
                     filtered.map(rx => (
-                        <PRCard key={rx.prescription_id} rx={rx} onView={() => setSelectedRx(rx)} />
+                        <PRCard key={rx.prescription_id} rx={rx} onClick={() => setSelectedRx(rx)} />
                     ))
                 )}
             </div>
@@ -148,12 +152,65 @@ export function PrescriptionRecords() {
                         </div>
 
                         <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
-                            <div className="grid grid-cols-2 gap-8">
+                            {/* Patient Demographics */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                                 <DetailBox label="Patient Name" value={selectedRx.patient?.full_name} icon={<User className="w-4 h-4" />} />
                                 <DetailBox label="Patient ID" value={selectedRx.patient_id} />
-                                <DetailBox label="Date Generated" value={new Date(selectedRx.created_at).toLocaleDateString()} icon={<Calendar className="w-4 h-4" />} />
-                                <DetailBox label="Follow-up Date" value={selectedRx.follow_up_date ? new Date(selectedRx.follow_up_date).toLocaleDateString() : 'N/A'} color="text-orange-600" />
+                                <DetailBox label="Age / Gender" value={`${selectedRx.patient?.age || 'N/A'} / ${selectedRx.patient?.gender || 'N/A'}`} />
+                                <DetailBox label="Blood Group" value={selectedRx.patient?.blood_group} color="text-red-600" />
+                                <DetailBox label="ABHA ID" value={selectedRx.patient?.abha_id || 'Not Linked'} />
+                                <DetailBox label="Insurance ID" value={selectedRx.patient?.insurance_id || 'N/A'} />
                             </div>
+
+                            {/* Contact Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <DetailBox label="Phone Number" value={selectedRx.patient?.phone} />
+                                <DetailBox label="Email Address" value={selectedRx.patient?.email} />
+                                <div className="md:col-span-2">
+                                    <DetailBox label="Residential Address" value={selectedRx.patient?.address} />
+                                </div>
+                            </div>
+
+                            {/* Prescription Timeline */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                <DetailBox label="Date Generated" value={new Date(selectedRx.created_at).toLocaleDateString()} icon={<Calendar className="w-4 h-4" />} />
+                                <DetailBox label="Follow-up Date" value={selectedRx.follow_up_date ? new Date(selectedRx.follow_up_date).toLocaleDateString() : 'No Follow-up'} color="text-orange-600" />
+                                <DetailBox label="Visit Type" value={selectedRx.appointments?.type || 'Consultation'} />
+                            </div>
+
+                            {selectedRx.patient?.medical_history && (
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                                        <Activity className="w-4 h-4 text-red-600" />
+                                        Patient Medical History
+                                    </h4>
+                                    <div className="p-4 bg-red-50/50 rounded-2xl border border-red-100 text-gray-700 italic">
+                                        {selectedRx.patient.medical_history}
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedRx.patient?.patient_documents && selectedRx.patient.patient_documents.length > 0 && (
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-indigo-600" />
+                                        Uploaded Medical Reports
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {selectedRx.patient.patient_documents.map((doc: any, i: number) => (
+                                            <a key={i} href={doc.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-200 hover:border-indigo-300 transition-colors group">
+                                                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                                    <FileText className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900 line-clamp-1">{doc.document_type || doc.file_name || 'Medical Report'}</p>
+                                                    <p className="text-xs text-gray-500">View Document</p>
+                                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-3">
                                 <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
@@ -214,9 +271,12 @@ export function PrescriptionRecords() {
     );
 }
 
-function PRCard({ rx, onView }: any) {
+function PRCard({ rx, onClick }: any) {
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl transition-all group overflow-hidden relative">
+        <div 
+            onClick={onClick}
+            className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl transition-all group overflow-hidden relative cursor-pointer active:scale-[0.98]"
+        >
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <FileText className="w-16 h-16 text-blue-600" />
             </div>
@@ -227,13 +287,13 @@ function PRCard({ rx, onView }: any) {
                         <User className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900">{rx.patient?.full_name}</h3>
+                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{rx.patient?.full_name}</h3>
                         <p className="text-xs font-bold text-gray-500 uppercase">ID: {rx.patient_id}</p>
                     </div>
                 </div>
-                <button onClick={onView} className="p-2 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-xl border border-gray-100 transition-all">
+                <div className="p-2 bg-gray-50 group-hover:bg-blue-600 text-gray-400 group-hover:text-white rounded-xl border border-gray-100 transition-all">
                     <Eye className="w-5 h-5" />
-                </button>
+                </div>
             </div>
 
             <div className="flex flex-wrap gap-4 mb-6">

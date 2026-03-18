@@ -1,45 +1,47 @@
-te_path>
-c:/Intern/ai-clinic/backend/test_seed.js</absolute_path>
-<parameter name="content">require('dotenv').config({ path: 'c:/Intern/ai-clinic/backend/.env' });
+require('dotenv').config();
 
 const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-let connectionString = process.env.DATABASE_URL.replace('prisma+postgresql://', 'postgresql://');
-
-const pool = new Pool({ 
-  connectionString,
-  ssl: { rejectUnauthorized: false }
-});
-
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function seedUser() {
   try {
-    // Check if test user exists
-    const existingUser = await prisma.users.findUnique({
-      where: { email: 'test@test.com' }
+    // Check if test user exists via emails table
+    const emailRecord = await prisma.emails.findUnique({
+      where: { email: 'test@test.com' },
+      include: { users: true }
     });
     
-    if (existingUser) {
-      console.log('User exists:', existingUser.email, existingUser.role);
+    if (emailRecord) {
+      console.log('User exists:', emailRecord.email, emailRecord.users.role);
     } else {
-      // Create test user
+      // Create test user with nested email
       const hashedPassword = await bcrypt.hash('test123', 10);
       const newUser = await prisma.users.create({
         data: {
           full_name: 'Test User',
-          email: 'test@test.com',
-          mobile_number: '1234567890',
           password_hash: hashedPassword,
           role: 'patient',
-          is_active: true
+          is_active: true,
+          emails: {
+            create: {
+              email: 'test@test.com',
+              is_primary: true
+            }
+          },
+          contact_numbers: {
+            create: {
+              phone_number: '1234567890',
+              is_primary: true
+            }
+          }
+        },
+        include: {
+            emails: true
         }
       });
-      console.log('Created user:', newUser.email, newUser.role);
+      console.log('Created user:', newUser.emails[0].email, newUser.role);
     }
     
     await prisma.$disconnect();

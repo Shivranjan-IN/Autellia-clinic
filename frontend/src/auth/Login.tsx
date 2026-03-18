@@ -13,10 +13,11 @@ import { useAuth } from '../contexts/AuthContext';
 interface LoginPageProps {
   onLogin: (user: User, token?: string) => void;
   onBack: () => void;
-  onRegister: (role: 'patient' | 'doctor' | 'clinic') => void;
+  onRegister: (role: 'doctor' | 'clinic') => void;
+  initialTab?: 'email' | 'mobile';
 }
 
-export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
+export function LoginPage({ onLogin, onBack, onRegister, initialTab = 'email' }: LoginPageProps) {
   const { navigateTo } = useNavigation();
   const { user } = useAuth();
   const [email, setEmail] = useState('');
@@ -24,9 +25,16 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [shouldNavigate, setShouldNavigate] = useState(false);
+  const [activeTab, setActiveTab] = useState<'email' | 'mobile'>(initialTab as any);
+
+  // Sync activeTab when initialTab changes (e.g., from AppRouter)
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   // Navigate to dashboard when user is authenticated
   useEffect(() => {
@@ -114,6 +122,8 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
     }
   };
 
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
       <Toaster />
@@ -129,15 +139,15 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
             </div>
           </div>
 
-          <Tabs defaultValue="email" className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="email">
-                <Mail className="size-4 mr-2" />
-                Email
+              <TabsTrigger value="email" className="text-xs sm:text-sm">
+                <Mail className="size-3 sm:size-4 mr-1 sm:mr-2" />
+                Login
               </TabsTrigger>
-              <TabsTrigger value="mobile">
-                <Smartphone className="size-4 mr-2" />
-                Mobile/OTP
+              <TabsTrigger value="mobile" className="text-xs sm:text-sm">
+                <Smartphone className="size-3 sm:size-4 mr-1 sm:mr-2" />
+                OTP
               </TabsTrigger>
             </TabsList>
 
@@ -304,6 +314,8 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
                 </p>
               </div>
             </TabsContent>
+
+
           </Tabs>
 
           <div className="mt-6 text-center">
@@ -320,12 +332,6 @@ export function LoginPage({ onLogin, onBack, onRegister }: LoginPageProps) {
                 className="w-full py-2 px-4 border border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium"
               >
                 Register Clinic
-              </button>
-              <button
-                onClick={() => onRegister('patient')}
-                className="w-full py-2 px-4 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium"
-              >
-                Register as Patient
               </button>
             </div>
           </div>

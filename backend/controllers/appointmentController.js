@@ -59,6 +59,7 @@ exports.createAppointment = async (req, res, next) => {
         let appointmentTime = req.body.appointment_time;
         console.log('DEBUG: Raw appointment_time:', appointmentTime, 'Type:', typeof appointmentTime);
 
+        let timeForValidation = appointmentTime;
         if (appointmentTime) {
             // If time is like "15:30:00", convert to full datetime string
             // Force conversion for any time-like string
@@ -69,18 +70,38 @@ exports.createAppointment = async (req, res, next) => {
                 const minutes = parts[1]?.padStart(2, '0') || '00';
                 const seconds = parts[2]?.padStart(2, '0') || '00';
 
+                timeForValidation = `${hours}:${minutes}:${seconds}`;
                 appointmentTime = `1970-01-01T${hours}:${minutes}:${seconds}.000Z`;
                 console.log('DEBUG: Converted appointment_time:', appointmentTime);
             }
         }
 
+        // 1. Time Slot Validation: Minimum 1 hour after current time
+        const now = new Date();
+        const selectedDateTime = new Date(utcDate);
+        if (timeForValidation) {
+            const [h, m, s] = timeForValidation.split(':').map(Number);
+            selectedDateTime.setUTCHours(h, m, s || 0, 0);
+        }
+
+        const allowedBookingTime = new Date(now.getTime() + 60 * 60 * 1000);
+        if (selectedDateTime < allowedBookingTime) {
+            return ResponseHandler.badRequest(res, 'Appointment must be booked at least 1 hour in advance');
+        }
+
+        // 2. Check Doctor Availability
+        const existingAppointment = await Appointment.findExisting(doctor_id, appointment_date, req.body.appointment_time);
+        if (existingAppointment) {
+            return ResponseHandler.badRequest(res, 'This slot is already booked. Please choose another time.');
+        }
+
         const appointmentData = {
             appointment_id,
             patient_id: req.body.patient_id,
-            doctor_id: req.body.doctor_id,
+            doctor_id: parseInt(req.body.doctor_id),
             appointment_date: utcDate,
             appointment_time: appointmentTime,
-            type: req.body.type,
+            appointment_type: req.body.type,
             mode: req.body.mode,
             status: req.body.status || 'scheduled',
             consult_duration: req.body.consult_duration || 30,
@@ -91,6 +112,7 @@ exports.createAppointment = async (req, res, next) => {
         const newAppointment = await Appointment.create(appointmentData);
         ResponseHandler.created(res, newAppointment, 'Appointment created successfully');
     } catch (error) {
+        console.error('Error in createAppointment:', error);
         next(error);
     }
 };

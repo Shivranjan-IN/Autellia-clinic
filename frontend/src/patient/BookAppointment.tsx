@@ -5,7 +5,6 @@ import {
   Video,
   Building2,
   Search,
-  Star,
   MapPin,
   Award,
   ChevronRight,
@@ -18,9 +17,9 @@ import { Label } from '../common/ui/label';
 import { Badge } from '../common/ui/badge';
 import { Avatar, AvatarFallback } from '../common/ui/avatar';
 import { Calendar } from '../common/ui/calendar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../common/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../common/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '../common/ui/tabs';
 import { Textarea } from '../common/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../common/ui/dialog';
 import api from "../lib/api";
 import type { PatientUser } from './PatientPortal';
 
@@ -37,6 +36,9 @@ interface Doctor {
   email: string;
   mobile: string;
   verification_status: string;
+  clinic_name?: string;
+  schedule?: string[];
+  fees?: number;
 }
 
 const timeSlots = [
@@ -192,7 +194,7 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
       if (response.success) {
         setAppointmentId(response.data?.appointment_id);
         setStep(4);
-      } else throw new Error('Failed to book appointment');
+      } else throw new Error(response.message || 'Failed to book appointment');
     } catch (error) {
       console.error('Error booking appointment:', error);
       alert('Failed to book appointment. Please try again.');
@@ -300,6 +302,66 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                               <p className="text-xs text-gray-600">Email</p>
                               <p className="text-sm font-medium text-blue-600">{doctor.email}</p>
                             </div>
+                          </div>
+                          
+                          <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  More Info
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent onClick={(e) => e.stopPropagation()}>
+                                <DialogHeader>
+                                  <DialogTitle>Doctor Details</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div>
+                                    <Label className="text-gray-500">Name</Label>
+                                    <p className="font-medium text-gray-900">{doctor.full_name}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-gray-500">Specialization</Label>
+                                    <p className="font-medium text-gray-900">{doctor.qualifications || 'General Physician'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-gray-500">Experience</Label>
+                                    <p className="font-medium text-gray-900">{doctor.experience_years ? `${doctor.experience_years} years` : 'Not specified'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-gray-500">Clinic</Label>
+                                    <p className="font-medium text-gray-900">{doctor.clinic_name || 'Primary Clinic'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-gray-500">Available Schedule</Label>
+                                    {doctor.schedule && doctor.schedule.length > 0 ? (
+                                      <ul className="list-disc pl-5 mt-1">
+                                        {doctor.schedule.map((s, i) => <li key={i} className="text-sm text-gray-800">{s}</li>)}
+                                      </ul>
+                                    ) : (
+                                      <p className="font-medium text-gray-900">Not available</p>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <Label className="text-gray-500">Fees</Label>
+                                    <p className="font-medium text-gray-900">₹{doctor.fees || 500}</p>
+                                  </div>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                            <Button 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDoctorSelect(doctor);
+                              }}
+                            >
+                              Book New Appointment
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -410,24 +472,56 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                     <p className="text-sm text-gray-600">Loading available slots...</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {timeSlots.map((time) => {
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      {timeSlots.map((time) => {
+                        const isBooked = bookedSlots.includes(time);
+                        
+                        // Rule: User can only book an appointment minimum 1 hour after the current time.
+                        const now = new Date();
+                        const [timePart, modifier] = time.split(' ');
+                        let [hours, minutes] = timePart.split(':').map(Number);
+                        if (modifier === 'PM' && hours !== 12) hours += 12;
+                        if (modifier === 'AM' && hours === 12) hours = 0;
+                        
+                        const slotDateTime = selectedDate ? new Date(selectedDate) : new Date();
+                        slotDateTime.setHours(hours, minutes, 0, 0);
+                        
+                        const isPast = slotDateTime < new Date(now.getTime() + 60 * 60 * 1000);
+                        const isDisabled = isBooked || isPast;
+
+                        return (
+                          <Button
+                            key={time}
+                            variant={selectedTime === time ? 'default' : isDisabled ? 'secondary' : 'outline'}
+                            size="sm"
+                            onClick={() => !isDisabled && setSelectedTime(time)}
+                            disabled={isDisabled}
+                            className={`w-full ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            {time}
+                            {isBooked && <span className="ml-1 text-xs">(Booked)</span>}
+                            {!isBooked && isPast && <span className="ml-1 text-xs">(N/A)</span>}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    {timeSlots.every(time => {
                       const isBooked = bookedSlots.includes(time);
-                      return (
-                        <Button
-                          key={time}
-                          variant={selectedTime === time ? 'default' : isBooked ? 'secondary' : 'outline'}
-                          size="sm"
-                          onClick={() => !isBooked && setSelectedTime(time)}
-                          disabled={isBooked}
-                          className={`w-full ${isBooked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {time}
-                          {isBooked && <span className="ml-1 text-xs">(Booked)</span>}
-                        </Button>
-                      );
-                    })}
-                  </div>
+                      const now = new Date();
+                      const [timePart, modifier] = time.split(' ');
+                      let [hours, minutes] = timePart.split(':').map(Number);
+                      if (modifier === 'PM' && hours !== 12) hours += 12;
+                      if (modifier === 'AM' && hours === 12) hours = 0;
+                      const slotDateTime = selectedDate ? new Date(selectedDate) : new Date();
+                      slotDateTime.setHours(hours, minutes, 0, 0);
+                      return isBooked || slotDateTime < new Date(now.getTime() + 60 * 60 * 1000);
+                    }) && (
+                      <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-center">
+                        <p className="text-sm text-orange-600 font-medium">No available slots for this doctor today.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -13,7 +13,7 @@ import {
   Bell
 } from 'lucide-react';
 import { cn } from '../common/ui/utils';
-import type { PatientPage } from '../PatientPortal';
+import type { PatientPage } from './PatientPortal';
 
 interface PatientSidebarProps {
   currentPage: PatientPage;
@@ -25,9 +25,10 @@ const menuItems = [
   { id: 'ai-tools' as PatientPage, label: 'AI Health Tools', icon: Brain },
   { id: 'medicine-store' as PatientPage, label: 'Buy Medicine', icon: ShoppingBag },
   { id: 'book-appointment' as PatientPage, label: 'Book Appointment', icon: Calendar },
-  { id: 'appointments' as PatientPage, label: 'My Appointments', icon: Calendar },
+  { id: 'appointments' as PatientPage, label: 'Doctor', icon: Calendar },
   { id: 'profile' as PatientPage, label: 'My Profile', icon: User },
   { id: 'prescriptions' as PatientPage, label: 'My Prescriptions', icon: FileText },
+  { id: 'reports' as PatientPage, label: 'My Reports', icon: FolderOpen },
   { id: 'cart' as PatientPage, label: 'My Cart', icon: ShoppingCart },
   { id: 'orders' as PatientPage, label: 'Order History', icon: History },
   { id: 'reminders' as PatientPage, label: 'Reminders', icon: Bell },

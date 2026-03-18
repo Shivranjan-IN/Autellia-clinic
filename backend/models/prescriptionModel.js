@@ -74,7 +74,10 @@ class Prescription {
                         select: { full_name: true }
                     },
                     medicines: true,
-                    lab_tests: true
+                    lab_tests: true,
+                    clinic: {
+                        select: { clinic_name: true }
+                    }
                 },
                 orderBy: { created_at: 'desc' }
             });

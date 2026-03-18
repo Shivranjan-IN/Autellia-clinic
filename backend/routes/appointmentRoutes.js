@@ -11,8 +11,8 @@ router.use(protect);
 // User's specific API requirements
 router.get('/', appointmentController.getDoctorAppointments);
 router.post('/start', authorize('doctor'), appointmentController.startAppointment);
-router.put('/status', authorize('doctor', 'admin', 'receptionist'), appointmentController.updateStatusFromPost);
-router.put('/reschedule', authorize('doctor', 'admin', 'receptionist'), appointmentController.rescheduleAppointment);
+router.put('/status', authorize('doctor', 'admin', 'receptionist', 'patient'), appointmentController.updateStatusFromPost);
+router.put('/reschedule', authorize('doctor', 'admin', 'receptionist', 'patient'), appointmentController.rescheduleAppointment);
 router.delete('/:id', authorize('doctor', 'admin'), appointmentController.deleteAppointment);
 
 // Existing/Other routes
@@ -38,7 +38,7 @@ router.get('/:id', appointmentController.getAppointmentById);
 router.patch(
     '/:id/status',
     [
-        authorize('admin', 'doctor', 'receptionist'),
+        authorize('admin', 'doctor', 'receptionist', 'patient'),
         check('status', 'Status is required').isIn(['scheduled', 'completed', 'cancelled', 'no-show', 'in_progress']),
         validate
     ],

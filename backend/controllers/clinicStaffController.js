@@ -110,7 +110,8 @@ exports.getStaff = async (req, res, next) => {
     try {
         const clinicId = req.user.clinic_id;
         const staff = await prisma.clinic_staff.findMany({
-            where: { clinic_id: clinicId }
+            where: { clinic_id: clinicId },
+            orderBy: { created_at: 'desc' }
         });
         ResponseHandler.success(res, staff, 'Operational staff roster retrieved');
     } catch (error) {
@@ -121,7 +122,7 @@ exports.getStaff = async (req, res, next) => {
 exports.addStaff = async (req, res, next) => {
     try {
         const clinicId = req.user.clinic_id;
-        const { full_name, role, email, mobile } = req.body;
+        const { full_name, role, email, phone, department } = req.body;
 
         const newStaff = await prisma.clinic_staff.create({
             data: {
@@ -129,7 +130,8 @@ exports.addStaff = async (req, res, next) => {
                 full_name,
                 role,
                 email,
-                mobile,
+                phone,
+                department,
                 is_active: true
             }
         });
@@ -155,7 +157,14 @@ exports.updateStaff = async (req, res, next) => {
 
         const updated = await prisma.clinic_staff.update({
             where: { id: parseInt(id) },
-            data: req.body
+            data: {
+                full_name: req.body.full_name,
+                role: req.body.role,
+                email: req.body.email,
+                phone: req.body.phone,
+                department: req.body.department,
+                is_active: req.body.is_active
+            }
         });
 
         ResponseHandler.success(res, updated, 'Staff credentials recalibrated');

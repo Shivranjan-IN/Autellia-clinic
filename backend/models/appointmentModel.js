@@ -42,7 +42,7 @@ class Appointment {
     static async findByDoctor(doctorId) {
         try {
             const data = await prisma.appointments.findMany({
-                where: { doctor_id: doctorId.toString() },
+                where: { doctor_id: Number(doctorId) },
                 orderBy: { appointment_date: 'asc' },
                 include: {
                     patient: true
@@ -155,7 +155,7 @@ class Appointment {
     static async findDoctorAppointments(filters) {
         try {
             const { doctor_id, type, dateFilter, from, to } = filters;
-            let where = { doctor_id: doctor_id.toString() };
+            let where = { doctor_id: Number(doctor_id) };
 
             if (type && type !== 'all') {
                 if (type === 'online') {
@@ -165,25 +165,33 @@ class Appointment {
                 }
             }
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Use UTC-based date ranges for reliable comparisons
+            const todayUTC = new Date();
+            todayUTC.setUTCHours(0, 0, 0, 0);
 
             if (dateFilter === 'today') {
-                where.appointment_date = today;
+                const tomorrowUTC = new Date(todayUTC);
+                tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
+                where.appointment_date = { gte: todayUTC, lt: tomorrowUTC };
             } else if (dateFilter === 'yesterday') {
-                const yesterday = new Date(today);
-                yesterday.setDate(today.getDate() - 1);
-                where.appointment_date = yesterday;
+                const yesterdayUTC = new Date(todayUTC);
+                yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+                where.appointment_date = { gte: yesterdayUTC, lt: todayUTC };
             } else if (dateFilter === 'tomorrow') {
-                const tomorrow = new Date(today);
-                tomorrow.setDate(today.getDate() + 1);
-                where.appointment_date = tomorrow;
+                const tomorrowUTC = new Date(todayUTC);
+                tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
+                const dayAfterUTC = new Date(tomorrowUTC);
+                dayAfterUTC.setUTCDate(dayAfterUTC.getUTCDate() + 1);
+                where.appointment_date = { gte: tomorrowUTC, lt: dayAfterUTC };
             } else if (dateFilter === 'custom' && from && to) {
+                const toEnd = new Date(to);
+                toEnd.setUTCHours(23, 59, 59, 999);
                 where.appointment_date = {
                     gte: new Date(from),
-                    lte: new Date(to)
+                    lte: toEnd
                 };
             }
+            // 'all' or no dateFilter = no date restriction
 
             const data = await prisma.appointments.findMany({
                 where,
@@ -239,7 +247,7 @@ class Appointment {
 
             const data = await prisma.appointments.findMany({
                 where: {
-                    doctor_id: doctorId.toString(),
+                    doctor_id: Number(doctorId),
                     appointment_date: {
                         gte: utcDate,
                         lt: nextDay
@@ -265,6 +273,16 @@ class Appointment {
                     return `${displayHour}:${minutes} ${modifier}`;
                 }
 
+                // If ISO string
+                if (timeStr.includes('T') && timeStr.includes('Z')) {
+                    const date = new Date(timeStr);
+                    const hour = date.getUTCHours();
+                    const minute = date.getUTCMinutes();
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour % 12 || 12;
+                    return `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${ampm}`;
+                }
+
                 const [hours, minutes] = timeStr.split(':');
                 const hour = parseInt(hours, 10);
                 const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -273,6 +291,41 @@ class Appointment {
             }).filter(Boolean);
 
             return bookedSlots;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async findExisting(doctorId, date, time) {
+        try {
+            const [year, month, day] = date.split('-').map(Number);
+            const utcDate = new Date(Date.UTC(year, month - 1, day));
+            const nextDay = new Date(utcDate.getTime() + 24 * 60 * 60 * 1000);
+
+            // Handle time conversion for comparison if needed
+            let timeToMatch = time;
+            if (time.includes(':')) {
+                const parts = time.split(':');
+                const hours = parts[0]?.padStart(2, '0') || '00';
+                const minutes = parts[1]?.padStart(2, '0') || '00';
+                const seconds = parts[2]?.padStart(2, '0') || '00';
+                timeToMatch = `1970-01-01T${hours}:${minutes}:${seconds}.000Z`;
+            }
+
+            const appointment = await prisma.appointments.findFirst({
+                where: {
+                    doctor_id: Number(doctorId),
+                    appointment_date: {
+                        gte: utcDate,
+                        lt: nextDay
+                    },
+                    appointment_time: timeToMatch,
+                    status: {
+                        not: 'cancelled'
+                    }
+                }
+            });
+            return appointment;
         } catch (error) {
             throw error;
         }

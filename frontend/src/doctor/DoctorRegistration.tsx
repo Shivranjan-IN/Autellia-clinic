@@ -7,25 +7,21 @@ import {
   DollarSign,
   Upload,
   CheckCircle,
-  Calendar,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
   ChevronRight,
   ChevronLeft,
   ArrowLeft
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../common/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../common/ui/card';
 import { Button } from '../common/ui/button';
 import { Input } from '../common/ui/input';
 import { Label } from '../common/ui/label';
 import { Textarea } from '../common/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../common/ui/select';
 import { Checkbox } from '../common/ui/checkbox';
-import { Badge } from '../common/ui/badge';
 import { authService } from '../services/authService';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { UserRole } from '../common/types';
 
 interface DoctorRegistrationProps {
   onBack: () => void;
@@ -65,6 +61,7 @@ const servicesOffered = [
 const consultationModes = ['Walk-in', 'Video Call', 'Chat', 'Home Visit'];
 
 export function DoctorRegistration({ onBack, onSuccess }: DoctorRegistrationProps) {
+  const { login } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -268,6 +265,7 @@ export function DoctorRegistration({ onBack, onSuccess }: DoctorRegistrationProp
         consultationModes: selectedModes,
         conditionsTreated: selectedConditions,
         servicesOffered: selectedServices,
+        workingDays: workingDays,
         bankDetails: {
           accountName: formData.accountName,
           accountNumber: formData.accountNumber,
@@ -278,17 +276,27 @@ export function DoctorRegistration({ onBack, onSuccess }: DoctorRegistrationProp
         bio: formData.bio
       };
 
-      await authService.signUpDoctor(registrationData, formData.password, files);
+      const response = await authService.signUpDoctor(registrationData, formData.password, files);
 
       toast.success("Registration successful!");
+      
+      // Auto-login
+      if (response.token && response.user) {
+        const userData = {
+          id: String(response.user.user_id),
+          full_name: response.user.full_name,
+          name: response.user.full_name,
+          email: response.user.email,
+          role: response.user.role as UserRole,
+          doctor_id: response.doctor?.id
+        };
+        login(userData, response.token);
+      }
+
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
         }, 1500);
-      } else {
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
       }
     } catch (error: any) {
       console.error("Registration failed:", error);

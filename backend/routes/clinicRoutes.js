@@ -17,6 +17,7 @@ router.get('/profile', clinicController.getProfile);
 router.put('/profile', clinicController.updateProfile);
 
 // 3. Patient Management
+router.get('/patients/search', clinicPatientController.searchPatient);
 router.get('/patients/today', clinicPatientController.getTodayPatients);
 router.get('/patients/upcoming', clinicPatientController.getUpcomingPatients);
 router.get('/patients/completed', clinicPatientController.getCompletedPatients);
@@ -26,8 +27,13 @@ router.post('/patients', clinicPatientController.addPatient);
 // 4. Appointment Management
 router.get('/appointments', clinicPatientController.getAppointments);
 router.post('/appointments', clinicPatientController.createAppointment);
+router.post('/appointments/book', clinicPatientController.bookAppointment);
 router.put('/appointments/:id', clinicPatientController.updateAppointment);
+router.patch('/appointments/:id/status', clinicPatientController.updateAppointmentStatus);
 router.delete('/appointments/:id', clinicPatientController.deleteAppointment);
+
+// Clinic Doctors list (for booking dropdown)
+router.get('/doctors/list', clinicPatientController.getClinicDoctors);
 
 // 5. Queue Management
 router.get('/queue', clinicPatientController.getQueue);
@@ -54,6 +60,7 @@ router.post('/labs/orders', clinicOpsController.createLabOrder);
 
 // 10. Billing & Payments
 router.get('/billing', clinicOpsController.getBilling);
+router.get('/billing/patients/search', clinicOpsController.searchBillingPatients);
 router.post('/billing', clinicOpsController.createInvoice);
 router.put('/billing/:id', clinicOpsController.updateInvoiceStatus);
 

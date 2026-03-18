@@ -71,5 +71,15 @@ export const labService = {
             console.error('Error deleting lab order:', error);
             throw error;
         }
+    },
+    
+    async getTestTypes() {
+        try {
+            const response = await labAPI.getTestTypes();
+            return response.data.data;
+        } catch (error) {
+            console.error('Error fetching test types:', error);
+            throw error;
+        }
     }
 };

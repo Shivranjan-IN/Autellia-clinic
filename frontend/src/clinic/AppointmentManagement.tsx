@@ -189,22 +189,22 @@ export function AppointmentManagement({ userRole }: AppointmentManagementProps) 
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-gray-900">{appointment.patient?.full_name || 'Anonymous'}</h3>
-                        <span className="text-xs text-gray-500">({appointment.patient_id})</span>
+                        <span className="text-xs text-gray-500">({appointment.patient_id.slice(0, 8)})</span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <span className="flex items-center gap-1">
                           <User className="w-4 h-4" />
-                          {appointment.doctor?.full_name || 'Any Doctor'}
+                          {appointment.doctor?.full_name || 'Assigned Doctor'}
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
-                          {new Date(appointment.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {appointment.appointment_time ? new Date(appointment.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${appointment.type === 'consultation' ? 'bg-purple-100 text-purple-700' :
                           appointment.type === 'follow-up' ? 'bg-green-100 text-green-700' :
                             'bg-blue-100 text-blue-700'
                           }`}>
-                          {appointment.type}
+                          {appointment.appointment_type || appointment.type}
                         </span>
                       </div>
                     </div>
@@ -217,14 +217,8 @@ export function AppointmentManagement({ userRole }: AppointmentManagementProps) 
                           appointment.status === 'scheduled' ? 'bg-purple-100 text-purple-700' :
                             'bg-red-100 text-red-700'
                       }`}>
-                      {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('-', ' ')}
+                      {(appointment.status || 'scheduled').charAt(0).toUpperCase() + (appointment.status || 'scheduled').slice(1).replace('-', ' ')}
                     </span>
-
-                    {(userRole === 'admin' || userRole === 'receptionist' || userRole === 'doctor') && (
-                      <button className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                        Manage
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
