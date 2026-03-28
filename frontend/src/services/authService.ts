@@ -234,6 +234,56 @@ export class AuthService {
         return responseData;
     }
 
+    // Sign up lab
+    async signUpLab(data: any, files?: Record<string, File>) {
+        const formData = new FormData();
+
+        // Add all data fields
+        Object.entries(data).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                if (typeof value === 'object') {
+                    formData.append(key, JSON.stringify(value));
+                } else {
+                    formData.append(key, String(value));
+                }
+            }
+        });
+
+        // Add files if provided
+        if (files) {
+            Object.entries(files).forEach(([key, file]) => {
+                formData.append(key, file);
+            });
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/register/lab`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Lab registration failed');
+        }
+
+        const responseData = await response.json();
+
+        // Store token and user for auto-login
+        if (responseData.token) {
+            localStorage.setItem('auth_token', responseData.token);
+            const userData: User = {
+                id: String(responseData.user.user_id),
+                full_name: responseData.user.full_name,
+                name: responseData.user.full_name,
+                email: responseData.user.email,
+                role: 'lab'
+            };
+            localStorage.setItem('user', JSON.stringify(userData));
+        }
+
+        return responseData;
+    }
+
     // Sign up doctor
     async signUpDoctor(data: DoctorRegistrationData, password: string, files?: Record<string, File>) {
         const formData = new FormData();

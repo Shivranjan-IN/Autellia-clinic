@@ -14,18 +14,18 @@ export interface User {
 
 export type PageView =
     // Core Pages
-    | "home" | "login" | "dashboard" | "loading"
+    | "home" | "login" | "dashboard" | "loading" | "forgot-password"
     | "features" | "how-it-works" | "pricing" | "ai-features"
     | "medicine" | "cart" | "healthcare" | "doctor-consult"
     | "lab-tests" | "plus" | "health-insights" | "offers" | "contact"
-    | "register-clinic" | "register-doctor"
+    | "register-clinic" | "register-doctor" | "register-lab"
     // Patient Portal Views
     | "patient-book-appointment" | "patient-appointments"
     | "patient-prescriptions" | "patient-reports" | "patient-billing"
     | "patient-profile" | "patient-medicine-store" | "patient-video-consult"
-    | "patient-ai-tools"
+    | "patient-ai-tools" | "patient-xray-analysis"
     // Clinic Management Views
-    | "clinic-appointments" | "clinic-patients" | "clinic-doctors"
+    | "clinic-appointments" | "clinic-patients" | "clinic-doctors" | "clinic-register-doctor"
     | "clinic-staff" | "clinic-billing" | "clinic-pharmacy"
     | "clinic-lab" | "clinic-prescriptions" | "clinic-queue"
     | "clinic-reports" | "clinic-iot" | "clinic-ai"

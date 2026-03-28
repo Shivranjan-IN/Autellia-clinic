@@ -1,85 +1,59 @@
-import { labAPI } from './api';
+import axios from 'axios';
 
-export interface LabOrder {
-    lab_order_id: string;
-    patient_id: string;
-    doctor_id?: number | null;
-    test_name: string;
-    priority: string;
-    order_date: string;
-    price?: number | null;
-    status: string;
-    notes?: string | null;
-    patient?: {
-        full_name: string;
-        email?: string;
-        phone?: string;
-        age?: number;
-        gender?: string;
-    };
-    doctor?: {
-        full_name: string;
-    };
-}
+const API_URL = 'http://localhost:5000/api/lab';
 
-export const labService = {
-    async getLabOrders(params?: any) {
-        try {
-            const response = await labAPI.getAll(params);
-            return response.data.data as LabOrder[];
-        } catch (error) {
-            console.error('Error fetching lab orders:', error);
-            throw error;
-        }
+const getAuthToken = () => localStorage.getItem('token');
+
+const labService = {
+    getDashboardStats: async () => {
+        const response = await axios.get(`${API_URL}/dashboard-stats`, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        return response.data;
     },
 
-    async getLabOrderById(id: string) {
-        try {
-            const response = await labAPI.getById(id);
-            return response.data.data as LabOrder;
-        } catch (error) {
-            console.error('Error fetching lab order details:', error);
-            throw error;
-        }
+    getBookings: async (filters = {}) => {
+        const response = await axios.get(`${API_URL}/bookings`, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` },
+            params: filters
+        });
+        return response.data;
     },
 
-    async createLabOrder(data: any) {
-        try {
-            const response = await labAPI.create(data);
-            return response.data.data as LabOrder;
-        } catch (error) {
-            console.error('Error creating lab order:', error);
-            throw error;
-        }
+    getInventory: async () => {
+        const response = await axios.get(`${API_URL}/inventory`, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        return response.data;
     },
 
-    async updateLabOrder(id: string, data: any) {
-        try {
-            const response = await labAPI.update(id, data);
-            return response.data;
-        } catch (error) {
-            console.error('Error updating lab order:', error);
-            throw error;
-        }
+    saveInventory: async (data: any) => {
+        const response = await axios.post(`${API_URL}/inventory`, data, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        return response.data;
     },
 
-    async deleteLabOrder(id: string) {
-        try {
-            const response = await labAPI.delete(id);
-            return response.data;
-        } catch (error) {
-            console.error('Error deleting lab order:', error);
-            throw error;
-        }
+    getStaff: async () => {
+        const response = await axios.get(`${API_URL}/staff`, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        return response.data;
     },
-    
-    async getTestTypes() {
-        try {
-            const response = await labAPI.getTestTypes();
-            return response.data.data;
-        } catch (error) {
-            console.error('Error fetching test types:', error);
-            throw error;
-        }
+
+    getClinicConnections: async () => {
+        const response = await axios.get(`${API_URL}/connections`, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        return response.data;
+    },
+
+    updateBookingStatus: async (orderId: string, status: string, notes?: string) => {
+        const response = await axios.put(`${API_URL}/${orderId}`, { status, notes }, {
+            headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        return response.data;
     }
 };
+
+export default labService;

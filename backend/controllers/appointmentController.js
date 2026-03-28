@@ -89,10 +89,14 @@ exports.createAppointment = async (req, res, next) => {
             return ResponseHandler.badRequest(res, 'Appointment must be booked at least 1 hour in advance');
         }
 
-        // 2. Check Doctor Availability
-        const existingAppointment = await Appointment.findExisting(doctor_id, appointment_date, req.body.appointment_time);
-        if (existingAppointment) {
-            return ResponseHandler.badRequest(res, 'This slot is already booked. Please choose another time.');
+        // 2. Check for Conflicts (Doctor or Patient already booked at this time)
+        const conflict = await Appointment.findConflictingAppointment(doctor_id, patient_id, appointment_date, req.body.appointment_time);
+        if (conflict) {
+            const isDoctorConflict = conflict.doctor_id === Number(doctor_id);
+            const message = isDoctorConflict 
+                ? 'This slot is already booked for the doctor. Please choose another time.' 
+                : 'You already have another appointment booked at this time. Please choose another time.';
+            return ResponseHandler.badRequest(res, message);
         }
 
         const appointmentData = {
@@ -239,19 +243,57 @@ exports.updateStatusFromPost = async (req, res, next) => {
 exports.rescheduleAppointment = async (req, res, next) => {
     try {
         const { appointment_id, appointment_date, appointment_time } = req.body;
+        console.log('RESCHEDULE REQUEST:', { appointment_id, appointment_date, appointment_time });
+        
         if (!appointment_id || !appointment_date || !appointment_time) {
             return ResponseHandler.badRequest(res, 'Missing reschedule parameters');
         }
 
+        const appointment = await Appointment.findById(appointment_id);
+        if (!appointment) {
+            return ResponseHandler.notFound(res, 'Appointment not found');
+        }
+
+        // Standardize date and time for comparison and storage
+        const [year, month, day] = appointment_date.split('-').map(Number);
+        const utcDate = new Date(Date.UTC(year, month - 1, day));
+        
+        let formattedTime = appointment_time;
+        if (appointment_time.includes('AM') || appointment_time.includes('PM')) {
+            const [time, modifier] = appointment_time.trim().split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            if (modifier === 'PM' && hours !== 12) hours += 12;
+            if (modifier === 'AM' && hours === 12) hours = 0;
+            formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+        }
+
+        console.log('FORMATTED FOR DB:', { utcDate, formattedTime });
+
+        // Check for conflicts (excluding the current appointment itself)
+        const conflict = await Appointment.findConflictingAppointment(appointment.doctor_id, appointment.patient_id, appointment_date, formattedTime);
+        
+        if (conflict && conflict.appointment_id !== appointment_id) {
+            console.log('CONFLICT DETECTED:', conflict);
+            const isDoctorConflict = conflict.doctor_id === Number(appointment.doctor_id);
+            const message = isDoctorConflict 
+                ? 'This slot is already booked for the doctor. Please choose another time.' 
+                : 'You already have another appointment booked at this time. Please choose another time.';
+            return ResponseHandler.badRequest(res, message);
+        }
+
+        const timeForDB = `1970-01-01T${formattedTime}.000Z`;
+
         const updateData = {
-            appointment_date: new Date(appointment_date),
-            appointment_time: appointment_time,
+            appointment_date: utcDate,
+            appointment_time: timeForDB,
             status: 'scheduled'
         };
 
         const updated = await Appointment.update(appointment_id, updateData);
+        console.log('RESCHEDULE SUCCESS:', updated);
         ResponseHandler.updated(res, updated, 'Appointment rescheduled');
     } catch (error) {
+        console.error('Error in rescheduleAppointment:', error);
         next(error);
     }
 };
@@ -284,9 +326,10 @@ exports.updateStatus = async (req, res, next) => {
 exports.getBookedSlots = async (req, res, next) => {
     try {
         const { doctorId, date } = req.params;
+        const { patientId } = req.query;
         if (!doctorId || !date) return ResponseHandler.badRequest(res, 'Doctor ID and date are required');
 
-        const bookedSlots = await Appointment.getBookedSlots(doctorId, date);
+        const bookedSlots = await Appointment.getBookedSlots(doctorId, date, patientId);
         ResponseHandler.success(res, { bookedSlots }, 'Booked time slots retrieved successfully');
     } catch (error) {
         next(error);

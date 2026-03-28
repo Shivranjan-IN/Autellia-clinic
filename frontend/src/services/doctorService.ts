@@ -16,6 +16,7 @@ export interface Doctor {
     availableDays?: string[];
     availableTime?: string;
     status: string;
+    gender?: string;
     date_of_birth?: string;
     medical_council_reg_no: string;
     medical_council_name?: string;
@@ -42,9 +43,12 @@ class DoctorService {
         };
     }
 
-    async getDoctors(): Promise<Doctor[]> {
+    async getDoctors(filters: { clinic_id?: number | string } = {}): Promise<Doctor[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/doctors`, {
+            const query = new URLSearchParams();
+            if (filters.clinic_id) query.append('clinic_id', filters.clinic_id.toString());
+            
+            const response = await fetch(`${API_BASE_URL}/api/doctors?${query.toString()}`, {
                 headers: await this.getAuthHeaders(),
             });
 
@@ -53,9 +57,29 @@ class DoctorService {
             }
 
             const result = await response.json();
-            return result.data?.doctors || [];
+            return result.data || [];
         } catch (error) {
             console.error('Error fetching doctors:', error);
+            throw error;
+        }
+    }
+
+    async registerDoctor(doctorData: any): Promise<any> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/doctors/register`, {
+                method: 'POST',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify(doctorData),
+            });
+
+            if (!response.ok) {
+                const errorResult = await response.json();
+                throw new Error(errorResult.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error registering doctor:', error);
             throw error;
         }
     }

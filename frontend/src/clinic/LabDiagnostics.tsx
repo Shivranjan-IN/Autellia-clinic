@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { UserRole } from '../common/types';
-import { Search, Plus, FlaskConical, Upload, Download, Clock, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { User } from '../common/types';
+import { Search, Plus, FlaskConical, Upload, Download, Clock, CheckCircle, AlertCircle, X, ChevronLeft } from 'lucide-react';
 import { clinicService } from '../services/clinicService';
 import { toast } from 'sonner';
 
 interface LabDiagnosticsProps {
-  userRole: UserRole;
+  user?: User | any;
+  onBack?: () => void;
 }
 
 interface LabOrder {
@@ -36,11 +37,13 @@ interface TestType {
   tat_hours: number;
 }
 
-export function LabDiagnostics({ userRole }: LabDiagnosticsProps) {
+export function LabDiagnostics({ user, onBack }: LabDiagnosticsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showConnectLabModal, setShowConnectLabModal] = useState(false);
+  const [showManualLabModal, setShowManualLabModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<LabOrder | null>(null);
 
   const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
@@ -55,6 +58,11 @@ export function LabDiagnostics({ userRole }: LabDiagnosticsProps) {
     test_type_id: '',
     priority: 'Normal',
     notes: ''
+  });
+
+  const [connectLabData, setConnectLabData] = useState({ labId: '' });
+  const [manualLabData, setManualLabData] = useState({
+    name: '', contact: '', address: '', tests: ''
   });
 
   useEffect(() => {
@@ -131,18 +139,37 @@ export function LabDiagnostics({ userRole }: LabDiagnosticsProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lab & Diagnostics</h1>
-          <p className="text-gray-600">Manage lab tests and diagnostic reports</p>
+        <div className="flex items-center gap-3">
+          {onBack && (
+             <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
+               <ChevronLeft className="w-5 h-5 text-gray-600" />
+             </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Lab & Diagnostics</h1>
+            <p className="text-gray-600">Manage lab tests and diagnostic reports</p>
+          </div>
         </div>
-        {(userRole === 'admin' || userRole === 'doctor' || userRole === 'clinic' || userRole === 'lab') && (
-          <div className="flex gap-3">
+        {(user?.role === 'admin' || user?.role === 'doctor' || user?.role === 'clinic' || user?.role === 'lab') && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowConnectLabModal(true)}
+              className="px-4 py-2 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm"
+            >
+              Connect Lab ID
+            </button>
+            <button
+              onClick={() => setShowManualLabModal(true)}
+              className="px-4 py-2 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm"
+            >
+              Add Lab Manually
+            </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm"
             >
-              <Plus className="w-5 h-5" />
-              Create Lab Order
+              <Plus className="w-4 h-4" />
+              Create Order
             </button>
           </div>
         )}
@@ -292,7 +319,7 @@ export function LabDiagnostics({ userRole }: LabDiagnosticsProps) {
                             <Download className="w-4 h-4" />
                           </button>
                         )}
-                        {(userRole === 'lab' || userRole === 'clinic') && order.status !== 'completed' && (
+                        {(user?.role === 'lab' || user?.role === 'clinic') && order.status !== 'completed' && (
                           <button
                             onClick={() => {
                               setSelectedOrder(order);
@@ -507,6 +534,65 @@ export function LabDiagnostics({ userRole }: LabDiagnosticsProps) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Connect Existing Lab Modal */}
+      {showConnectLabModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl">
+             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Connect Existing Lab</h2>
+                <button onClick={() => setShowConnectLabModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
+             </div>
+             <div className="p-6">
+                <label className="block text-sm font-semibold mb-2">Registered Lab ID / Invite Code</label>
+                <input
+                   className="w-full px-4 py-2 border rounded-xl"
+                   value={connectLabData.labId}
+                   onChange={e => setConnectLabData({labId: e.target.value})}
+                   placeholder="e.g. LAB-12345"
+                />
+                <div className="mt-6 flex gap-3">
+                   <button onClick={() => {toast.success('Lab mapping request sent!'); setShowConnectLabModal(false);}} className="flex-1 bg-blue-600 text-white py-2 rounded-xl">Connect</button>
+                   <button onClick={() => setShowConnectLabModal(false)} className="flex-1 border py-2 rounded-xl">Cancel</button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Manual Lab Modal */}
+      {showManualLabModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Add Lab Manually</h2>
+                <button onClick={() => setShowManualLabModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
+             </div>
+             <div className="p-6 space-y-4">
+                <div>
+                   <label className="block text-sm font-semibold mb-1">Lab Name</label>
+                   <input className="w-full px-4 py-2 border rounded-xl" value={manualLabData.name} onChange={e => setManualLabData(p=>({...p, name: e.target.value}))} />
+                </div>
+                <div>
+                   <label className="block text-sm font-semibold mb-1">Contact Number</label>
+                   <input className="w-full px-4 py-2 border rounded-xl" value={manualLabData.contact} onChange={e => setManualLabData(p=>({...p, contact: e.target.value}))} />
+                </div>
+                <div>
+                   <label className="block text-sm font-semibold mb-1">Address</label>
+                   <input className="w-full px-4 py-2 border rounded-xl" value={manualLabData.address} onChange={e => setManualLabData(p=>({...p, address: e.target.value}))} />
+                </div>
+                <div>
+                   <label className="block text-sm font-semibold mb-1">Available Tests (comma separated)</label>
+                   <input className="w-full px-4 py-2 border rounded-xl" value={manualLabData.tests} onChange={e => setManualLabData(p=>({...p, tests: e.target.value}))} />
+                </div>
+                <div className="mt-6 flex gap-3">
+                   <button onClick={() => {toast.success('Manual lab created and mapped!'); setShowManualLabModal(false);}} className="flex-1 bg-blue-600 text-white py-2 rounded-xl">Add Lab</button>
+                   <button onClick={() => setShowManualLabModal(false)} className="flex-1 border py-2 rounded-xl">Cancel</button>
+                </div>
+             </div>
           </div>
         </div>
       )}

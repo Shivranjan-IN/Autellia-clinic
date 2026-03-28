@@ -56,45 +56,23 @@ class Appointment {
 
     static async findByPatient(patientId) {
         try {
-            const data = await prisma.appointments.findMany({
+            return await prisma.appointments.findMany({
                 where: { patient_id: patientId },
+                include: {
+                    doctor: {
+                        select: {
+                            full_name: true,
+                            qualifications: true
+                        }
+                    },
+                    clinic: {
+                        select: {
+                            clinic_name: true
+                        }
+                    }
+                },
                 orderBy: { appointment_date: 'desc' }
             });
-
-            // Fetch clinic information from database
-            const clinic = await prisma.clinics.findFirst();
-            const clinicInfo = clinic ? {
-                clinic_name: clinic.clinic_name
-            } : {
-                clinic_name: 'Clinic'
-            };
-
-            const appointmentsWithDoctor = await Promise.all(data.map(async (appointment) => {
-                let doctor = null;
-                if (appointment.doctor_id) {
-                    try {
-                        doctor = await prisma.doctors.findUnique({
-                            where: { id: Number(appointment.doctor_id) }
-                        });
-                    } catch (err) {
-                        doctor = null;
-                    }
-                }
-
-                return {
-                    ...appointment,
-                    doctor: doctor ? {
-                        full_name: doctor.full_name,
-                        qualifications: doctor.qualifications
-                    } : {
-                        full_name: 'Unknown Doctor',
-                        qualifications: 'N/A'
-                    },
-                    clinic: clinicInfo
-                };
-            }));
-
-            return appointmentsWithDoctor;
         } catch (error) {
             throw error;
         }
@@ -104,49 +82,28 @@ class Appointment {
         try {
             const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
-            const data = await prisma.appointments.findMany({
+            return await prisma.appointments.findMany({
                 where: {
                     patient_id: patientId,
                     appointment_date: {
                         gte: todayUTC
                     }
                 },
+                include: {
+                    doctor: {
+                        select: {
+                            full_name: true,
+                            qualifications: true
+                        }
+                    },
+                    clinic: {
+                        select: {
+                            clinic_name: true
+                        }
+                    }
+                },
                 orderBy: { appointment_date: 'asc' }
             });
-
-            const clinic = await prisma.clinics.findFirst();
-            const clinicInfo = clinic ? {
-                clinic_name: clinic.clinic_name
-            } : {
-                clinic_name: 'Clinic'
-            };
-
-            const appointmentsWithDoctor = await Promise.all(data.map(async (appointment) => {
-                let doctor = null;
-                if (appointment.doctor_id) {
-                    try {
-                        doctor = await prisma.doctors.findUnique({
-                            where: { id: Number(appointment.doctor_id) }
-                        });
-                    } catch (err) {
-                        doctor = null;
-                    }
-                }
-
-                return {
-                    ...appointment,
-                    doctor: doctor ? {
-                        full_name: doctor.full_name,
-                        qualifications: doctor.qualifications
-                    } : {
-                        full_name: 'Unknown Doctor',
-                        qualifications: 'N/A'
-                    },
-                    clinic: clinicInfo
-                };
-            }));
-
-            return appointmentsWithDoctor;
         } catch (error) {
             throw error;
         }
@@ -239,32 +196,52 @@ class Appointment {
         }
     }
 
-    static async getBookedSlots(doctorId, date) {
+    static async getBookedSlots(doctorId, date, patientId = null) {
         try {
             const [year, month, day] = date.split('-').map(Number);
             const utcDate = new Date(Date.UTC(year, month - 1, day));
             const nextDay = new Date(utcDate.getTime() + 24 * 60 * 60 * 1000);
 
-            const data = await prisma.appointments.findMany({
-                where: {
-                    doctor_id: Number(doctorId),
-                    appointment_date: {
-                        gte: utcDate,
-                        lt: nextDay
-                    },
-                    status: {
-                        not: 'cancelled'
-                    }
+            const where = {
+                appointment_date: {
+                    gte: utcDate,
+                    lt: nextDay
                 },
+                status: {
+                    notIn: ['cancelled']
+                },
+                OR: [
+                    { doctor_id: Number(doctorId) }
+                ]
+            };
+
+            if (patientId) {
+                where.OR.push({ patient_id: patientId });
+            }
+
+            const data = await prisma.appointments.findMany({
+                where,
                 select: {
+                    appointment_id: true,
                     appointment_time: true
                 }
             });
 
             const bookedSlots = data.map(appointment => {
-                const timeStr = appointment.appointment_time;
-                if (!timeStr) return null;
+                let timeVal = appointment.appointment_time;
+                if (!timeVal) return null;
 
+                // Handle Date object (common with Prisma for Time types)
+                if (timeVal instanceof Date) {
+                    const hour = timeVal.getUTCHours();
+                    const minute = timeVal.getUTCMinutes();
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour % 12 || 12;
+                    return `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${ampm}`;
+                }
+
+                // Handle strings
+                const timeStr = String(timeVal);
                 if (timeStr.includes('AM') || timeStr.includes('PM')) {
                     const [time, modifier] = timeStr.trim().split(' ');
                     const [hours, minutes] = time.split(':');
@@ -274,7 +251,7 @@ class Appointment {
                 }
 
                 // If ISO string
-                if (timeStr.includes('T') && timeStr.includes('Z')) {
+                if (timeStr.includes('T')) {
                     const date = new Date(timeStr);
                     const hour = date.getUTCHours();
                     const minute = date.getUTCMinutes();
@@ -292,6 +269,7 @@ class Appointment {
 
             return bookedSlots;
         } catch (error) {
+            console.error('Error in getBookedSlots:', error);
             throw error;
         }
     }
@@ -302,27 +280,68 @@ class Appointment {
             const utcDate = new Date(Date.UTC(year, month - 1, day));
             const nextDay = new Date(utcDate.getTime() + 24 * 60 * 60 * 1000);
 
-            // Handle time conversion for comparison if needed
-            let timeToMatch = time;
-            if (time.includes(':')) {
+            // Standardize time for DB comparison (1970-01-01T09:00:00.000Z)
+            let timeToMatch;
+            if (time.includes('AM') || time.includes('PM')) {
+                const [t, mod] = time.trim().split(' ');
+                let [h, m] = t.split(':').map(Number);
+                if (mod === 'PM' && h !== 12) h += 12;
+                if (mod === 'AM' && h === 12) h = 0;
+                timeToMatch = new Date(`1970-01-01T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00.000Z`);
+            } else if (time.includes(':') && !time.includes('T')) {
                 const parts = time.split(':');
-                const hours = parts[0]?.padStart(2, '0') || '00';
-                const minutes = parts[1]?.padStart(2, '0') || '00';
-                const seconds = parts[2]?.padStart(2, '0') || '00';
-                timeToMatch = `1970-01-01T${hours}:${minutes}:${seconds}.000Z`;
+                const h = parts[0].padStart(2, '0');
+                const m = parts[1].padStart(2, '0');
+                timeToMatch = new Date(`1970-01-01T${h}:${m}:00.000Z`);
+            } else {
+                timeToMatch = new Date(time);
             }
 
             const appointment = await prisma.appointments.findFirst({
                 where: {
                     doctor_id: Number(doctorId),
-                    appointment_date: {
-                        gte: utcDate,
-                        lt: nextDay
-                    },
+                    appointment_date: { gte: utcDate, lt: nextDay },
                     appointment_time: timeToMatch,
-                    status: {
-                        not: 'cancelled'
-                    }
+                    status: { not: 'cancelled' }
+                }
+            });
+            return appointment;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async findConflictingAppointment(doctorId, patientId, date, time) {
+        try {
+            const [year, month, day] = date.split('-').map(Number);
+            const utcDate = new Date(Date.UTC(year, month - 1, day));
+            const nextDay = new Date(utcDate.getTime() + 24 * 60 * 60 * 1000);
+
+            let timeToMatch;
+            if (time.includes('AM') || time.includes('PM')) {
+                const [t, mod] = time.trim().split(' ');
+                let [h, m] = t.split(':').map(Number);
+                if (mod === 'PM' && h !== 12) h += 12;
+                if (mod === 'AM' && h === 12) h = 0;
+                timeToMatch = new Date(`1970-01-01T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00.000Z`);
+            } else if (time.includes(':') && !time.includes('T')) {
+                const parts = time.split(':');
+                const h = parts[0].padStart(2, '0');
+                const m = parts[1].padStart(2, '0');
+                timeToMatch = new Date(`1970-01-01T${h}:${m}:00.000Z`);
+            } else {
+                timeToMatch = new Date(time);
+            }
+
+            const appointment = await prisma.appointments.findFirst({
+                where: {
+                    appointment_date: { gte: utcDate, lt: nextDay },
+                    appointment_time: timeToMatch,
+                    status: { not: 'cancelled' },
+                    OR: [
+                        { doctor_id: Number(doctorId) },
+                        { patient_id: patientId }
+                    ]
                 }
             });
             return appointment;

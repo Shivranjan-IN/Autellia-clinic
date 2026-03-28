@@ -14,7 +14,7 @@ import {
     X,
     Activity
 } from 'lucide-react';
-import { labService } from '../services/labService';
+import labService from '../services/labService';
 import { doctorService } from '../services/doctorService';
 
 interface LabDiagnosticsProps {

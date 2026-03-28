@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -19,7 +20,6 @@ import { Avatar, AvatarFallback } from '../common/ui/avatar';
 import { Calendar } from '../common/ui/calendar';
 import { Tabs, TabsList, TabsTrigger } from '../common/ui/tabs';
 import { Textarea } from '../common/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../common/ui/dialog';
 import api from "../lib/api";
 import type { PatientUser } from './PatientPortal';
 
@@ -30,15 +30,15 @@ interface BookAppointmentProps {
 interface Doctor {
   id: number;
   full_name: string;
+  specialization: string;
+  experience_years: number;
+  fees: number;
+  profile_photo_url?: string;
+  languages?: string[];
   qualifications?: string;
-  experience_years?: number;
-  bio?: string;
-  email: string;
-  mobile: string;
-  verification_status: string;
+  address?: string;
   clinic_name?: string;
-  schedule?: string[];
-  fees?: number;
+  clinic_address?: string;
 }
 
 const timeSlots = [
@@ -66,6 +66,7 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
   const [appointmentId, setAppointmentId] = useState<string>('');
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -93,10 +94,11 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
       setSelectedTime('');
       try {
         const dateStr = selectedDate.toISOString().split('T')[0];
-        const response = await api.get(`/appointments/booked-slots/${selectedDoctor.id}/${dateStr}`);
+        const response = await api.get(`/appointments/booked-slots/${selectedDoctor.id}/${dateStr}?patientId=${patient.id}`);
         const bookedSlotsData = Array.isArray(response.bookedSlots) ? response.bookedSlots : (response.data?.bookedSlots || []);
+        console.log('Booked slots for date:', dateStr, bookedSlotsData);
         setBookedSlots(bookedSlotsData);
-        if (selectedTime && bookedSlotsData.includes(selectedTime)) {
+        if (selectedTime && bookedSlotsData.some((s: string) => s?.trim().toLowerCase() === selectedTime.trim().toLowerCase())) {
           setSelectedTime('');
         }
       } catch (error) {
@@ -203,6 +205,26 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
     }
   };
 
+  const downloadReceiptAsImage = async () => {
+    if (receiptRef.current) {
+      try {
+        const canvas = await html2canvas(receiptRef.current, {
+          backgroundColor: '#F0FDF4', // bg-green-50
+          scale: 2,
+          useCORS: true,
+          logging: false
+        });
+        const link = document.createElement('a');
+        link.download = `receipt-${appointmentId}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 0.9);
+        link.click();
+      } catch (error) {
+        console.error('Error generating receipt image:', error);
+        alert('Failed to download receipt as image');
+      }
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -269,98 +291,58 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                     className="hover:shadow-lg transition-shadow cursor-pointer"
                     onClick={() => handleDoctorSelect(doctor)}
                   >
-                    <CardContent className="p-6">
+                    <CardContent className="p-4">
                       <div className="flex gap-4">
-                        <Avatar className="size-16">
-                          <AvatarFallback className="bg-blue-600 text-white">
-                            {doctor.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                          </AvatarFallback>
+                        <Avatar className="size-20 rounded-lg shrink-0">
+                          {doctor.profile_photo_url ? (
+                            <img src={doctor.profile_photo_url} alt={doctor.full_name} className="object-cover" />
+                          ) : (
+                            <AvatarFallback className="rounded-lg bg-blue-100 text-blue-700 text-lg font-bold">
+                              {doctor.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </AvatarFallback>
+                          )}
                         </Avatar>
 
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">{doctor.full_name}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{doctor.qualifications || 'General Physician'}</p>
-
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {doctor.experience_years && (
-                              <Badge variant="outline" className="text-xs">
-                                <Award className="size-3 mr-1" />
-                                {doctor.experience_years} years
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className="text-xs">
-                              {doctor.verification_status === 'VERIFIED' ? 'Verified' : 'Pending Verification'}
+                        <div className="flex-1 space-y-1">
+                          <div className="flex justify-between items-start">
+                            <h3 className="font-bold text-gray-900 leading-tight">{doctor.full_name}</h3>
+                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100">
+                              ₹{doctor.fees || 500}
                             </Badge>
                           </div>
-
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Contact</p>
-                              <p className="font-semibold text-gray-900">{doctor.mobile}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-600">Email</p>
-                              <p className="text-sm font-medium text-blue-600">{doctor.email}</p>
-                            </div>
-                          </div>
+                          <p className="text-sm font-semibold text-blue-600 leading-none">
+                            {doctor.specialization || 'General Physician'}
+                          </p>
+                          <p className="text-[11px] text-gray-500 font-medium">
+                            {doctor.qualifications}
+                          </p>
                           
-                          <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  More Info
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent onClick={(e) => e.stopPropagation()}>
-                                <DialogHeader>
-                                  <DialogTitle>Doctor Details</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div>
-                                    <Label className="text-gray-500">Name</Label>
-                                    <p className="font-medium text-gray-900">{doctor.full_name}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-gray-500">Specialization</Label>
-                                    <p className="font-medium text-gray-900">{doctor.qualifications || 'General Physician'}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-gray-500">Experience</Label>
-                                    <p className="font-medium text-gray-900">{doctor.experience_years ? `${doctor.experience_years} years` : 'Not specified'}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-gray-500">Clinic</Label>
-                                    <p className="font-medium text-gray-900">{doctor.clinic_name || 'Primary Clinic'}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-gray-500">Available Schedule</Label>
-                                    {doctor.schedule && doctor.schedule.length > 0 ? (
-                                      <ul className="list-disc pl-5 mt-1">
-                                        {doctor.schedule.map((s, i) => <li key={i} className="text-sm text-gray-800">{s}</li>)}
-                                      </ul>
-                                    ) : (
-                                      <p className="font-medium text-gray-900">Not available</p>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <Label className="text-gray-500">Fees</Label>
-                                    <p className="font-medium text-gray-900">₹{doctor.fees || 500}</p>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Button 
-                              size="sm" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDoctorSelect(doctor);
-                              }}
-                            >
-                              Book New Appointment
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 pt-1 mb-2">
+                             <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                               <Award className="size-3.5 text-blue-500" />
+                               <span>{doctor.experience_years || 0} yrs experience</span>
+                             </div>
+                             
+                             {doctor.languages && doctor.languages.length > 0 && (
+                               <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                                 <Video className="size-3.5 text-blue-500" />
+                                 <span className="line-clamp-1">Speaks: {doctor.languages.join(', ')}</span>
+                               </div>
+                             )}
+
+                             <div className="flex items-start gap-1.5 text-[11px] text-gray-500 col-span-full">
+                               <MapPin className="size-3.5 text-blue-500 shrink-0 mt-0.5" />
+                               <span className="line-clamp-2">{doctor.address}</span>
+                             </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-700">
+                               <Building2 className="size-3.5 text-blue-600" />
+                               <span className="line-clamp-1">{doctor.clinic_name || 'Primary Clinic'}</span>
+                            </div>
+                            <Button size="sm" className="h-8 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg" onClick={(e) => { e.stopPropagation(); handleDoctorSelect(doctor); }}>
+                              Book Appointment
                             </Button>
                           </div>
                         </div>
@@ -475,9 +457,6 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                   <>
                     <div className="grid grid-cols-3 gap-2">
                       {timeSlots.map((time) => {
-                        const isBooked = bookedSlots.includes(time);
-                        
-                        // Rule: User can only book an appointment minimum 1 hour after the current time.
                         const now = new Date();
                         const [timePart, modifier] = time.split(' ');
                         let [hours, minutes] = timePart.split(':').map(Number);
@@ -486,22 +465,22 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                         
                         const slotDateTime = selectedDate ? new Date(selectedDate) : new Date();
                         slotDateTime.setHours(hours, minutes, 0, 0);
-                        
+
                         const isPast = slotDateTime < new Date(now.getTime() + 60 * 60 * 1000);
-                        const isDisabled = isBooked || isPast;
+                        const isBooked = bookedSlots.some(s => s?.trim() === time.trim());
+                        const isAvailable = !isBooked && !isPast;
+
+                        if (!isAvailable) return null;
 
                         return (
                           <Button
                             key={time}
-                            variant={selectedTime === time ? 'default' : isDisabled ? 'secondary' : 'outline'}
+                            variant={selectedTime === time ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => !isDisabled && setSelectedTime(time)}
-                            disabled={isDisabled}
-                            className={`w-full ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={() => setSelectedTime(time)}
+                            className="w-full"
                           >
                             {time}
-                            {isBooked && <span className="ml-1 text-xs">(Booked)</span>}
-                            {!isBooked && isPast && <span className="ml-1 text-xs">(N/A)</span>}
                           </Button>
                         );
                       })}
@@ -651,8 +630,18 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                 Your appointment has been confirmed. You will receive a confirmation email and SMS shortly.
               </p>
 
-              <div className="bg-white rounded-lg p-6 mb-6 text-left">
-                <div className="grid grid-cols-2 gap-4">
+              <div ref={receiptRef} className="bg-white rounded-lg p-6 mb-6 text-left border border-green-100 shadow-sm">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                  <div className="flex items-center gap-2">
+                    <div className="size-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <CalendarIcon className="size-4 text-white" />
+                    </div>
+                    <span className="font-bold text-gray-900">E Clinic Receipt</span>
+                  </div>
+                  <Badge variant="outline" className="text-green-600 border-green-200">Payment Confirmed</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                   <div>
                     <p className="text-xs text-gray-600 mb-1">Appointment ID</p>
                     <p className="font-mono font-semibold text-gray-900">{appointmentId || `APT-2026-${Math.floor(Math.random() * 1000)}`}</p>
@@ -677,8 +666,12 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
               </div>
 
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1">
-                  Download Receipt
+                <Button 
+                  variant="outline" 
+                  className="flex-1 bg-white hover:bg-gray-50 text-gray-900 border-gray-200"
+                  onClick={downloadReceiptAsImage}
+                >
+                  Download Receipt (JPG)
                 </Button>
                 <Button className="flex-1" onClick={() => setStep(1)}>
                   Book Another Appointment

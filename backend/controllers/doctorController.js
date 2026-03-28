@@ -454,15 +454,41 @@ exports.updateDoctorProfile = async (req, res, next) => {
 
 exports.getAllDoctors = async (req, res, next) => {
     try {
+        const { clinic_id } = req.query;
+        
+        let whereClause = {
+            verification_status: { in: ['VERIFIED', 'COMPLETE', 'verified', 'complete', 'PENDING', 'pending'] }
+        };
+
+        if (clinic_id) {
+            whereClause.doctor_clinic_mapping = {
+                some: {
+                    clinic_id: parseInt(clinic_id)
+                }
+            };
+        }
+
         const doctors = await prisma.doctors.findMany({
-            where: {
-                verification_status: { in: ['VERIFIED', 'COMPLETE', 'verified', 'complete', 'PENDING', 'pending'] }
-            },
+            where: whereClause,
             include: {
-                doctor_specializations: true,
+                doctor_specializations: {
+                    include: {
+                        specializations_master: true
+                    }
+                },
+                doctor_languages: true,
                 doctor_clinic_mapping: {
                     include: {
-                        clinics: true
+                        clinics: {
+                            include: {
+                                address: true
+                            }
+                        }
+                    }
+                },
+                doctor_practice_locations: {
+                    include: {
+                        addresses: true
                     }
                 },
                 doctor_time_slots: true,
@@ -475,9 +501,29 @@ exports.getAllDoctors = async (req, res, next) => {
             }
         });
 
-        // Map back to include specialization for the list view
+        // Map doctor data with all required fields for the frontend
         const mappedDoctors = doctors.map(doctor => {
-            const clinic = doctor.doctor_clinic_mapping.length > 0 ? doctor.doctor_clinic_mapping[0].clinics?.clinic_name : 'Primary Clinic';
+            // Get specialization from master
+            const specialization = doctor.doctor_specializations.length > 0 
+                ? doctor.doctor_specializations[0].specializations_master?.specialization_name 
+                : 'General Physician';
+            
+            // Get languages
+            const languages = doctor.doctor_languages.map(l => l.language);
+            
+            // Get clinic information
+            const clinicMapping = doctor.doctor_clinic_mapping.length > 0 ? doctor.doctor_clinic_mapping[0].clinics : null;
+            const clinicName = clinicMapping?.clinic_name || 'Primary Clinic';
+            const clinicAddress = clinicMapping?.address 
+                ? `${clinicMapping.address.address}, ${clinicMapping.address.city}, ${clinicMapping.address.state}`
+                : '';
+
+            // Get practice address
+            const practiceLocation = doctor.doctor_practice_locations.length > 0 ? doctor.doctor_practice_locations[0].addresses : null;
+            const address = practiceLocation 
+                ? `${practiceLocation.address}, ${practiceLocation.city}, ${practiceLocation.state}`
+                : clinicAddress;
+
             const schedule = doctor.doctor_time_slots.map(ts => {
                 const start = ts.start_time ? new Date(ts.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 const end = ts.end_time ? new Date(ts.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -489,19 +535,122 @@ exports.getAllDoctors = async (req, res, next) => {
                 full_name: doctor.full_name,
                 email: doctor.users?.emails?.[0]?.email || '',
                 mobile: doctor.users?.contact_numbers?.[0]?.phone_number || '',
-                specialization: doctor.doctor_specializations.length > 0 ? doctor.doctor_specializations[0].specialization : 'General Physician',
+                specialization: specialization,
+                languages: languages,
                 qualifications: doctor.qualifications,
                 experience_years: doctor.experience_years,
                 bio: doctor.bio,
                 profile_photo_url: doctor.profile_photo_url,
                 verification_status: doctor.verification_status,
-                clinic_name: clinic,
+                clinic_name: clinicName,
+                clinic_address: clinicAddress,
+                address: address,
                 schedule: schedule,
-                fees: 500 // Assuming default fee as it is not in the schema
+                fees: 500
             };
         });
 
-        ResponseHandler.success(res, mappedDoctors, 'All verified doctors retrieved');
+        ResponseHandler.success(res, mappedDoctors, 'Doctors retrieved successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.registerDoctor = async (req, res, next) => {
+    try {
+        const { full_name, email, phone, specialization, password, qualification, experience_years, medical_council_reg_no, bio, gender, date_of_birth, languages } = req.body;
+        const clinicId = req.user.clinic_id;
+
+        if (!clinicId) {
+            return ResponseHandler.forbidden(res, 'Only clinic admins can register doctors via this endpoint');
+        }
+
+        if (!full_name || !email || !password) {
+            return ResponseHandler.badRequest(res, 'Name, email and password are required');
+        }
+
+        // Check if user exists
+        const existingUser = await prisma.users.findFirst({
+            where: { emails: { some: { email } } }
+        });
+        if (existingUser) {
+            return ResponseHandler.badRequest(res, 'A user with this email already exists');
+        }
+
+        const hashedPassword = await require('bcryptjs').hash(password, 10);
+
+        // Transaction to create user, doctor and mapping
+        const result = await prisma.$transaction(async (tx) => {
+            const user = await tx.users.create({
+                data: {
+                    full_name,
+                    password_hash: hashedPassword,
+                    role: 'doctor',
+                    emails: {
+                        create: { email, is_primary: true }
+                    },
+                    contact_numbers: {
+                        create: { phone_number: phone || '', is_primary: true }
+                    }
+                }
+            });
+
+            const doctor = await tx.doctors.create({
+                data: {
+                    full_name,
+                    user_id: user.user_id,
+                    medical_council_reg_no: medical_council_reg_no || 'PENDING',
+                    qualifications: qualification || 'MBBS',
+                    experience_years: experience_years ? parseInt(experience_years) : 0,
+                    bio: bio || '',
+                    gender: gender || 'Other',
+                    date_of_birth: date_of_birth ? new Date(date_of_birth) : null,
+                    verification_status: 'PENDING'
+                }
+            });
+
+            if (specialization) {
+                // Find or create specialization in master
+                let specMaster = await tx.specializations_master.findUnique({
+                    where: { specialization_name: specialization }
+                });
+                if (!specMaster) {
+                    specMaster = await tx.specializations_master.create({
+                        data: { specialization_name: specialization }
+                    });
+                }
+
+                await tx.doctor_specializations.create({
+                    data: {
+                        doctor_id: doctor.id,
+                        specialization_id: specMaster.id
+                    }
+                });
+            }
+
+            if (languages) {
+                const langs = languages.split(',').map(l => l.trim()).filter(l => l !== '');
+                for (const lang of langs) {
+                    await tx.doctor_languages.create({
+                        data: {
+                            doctor_id: doctor.id,
+                            language: lang
+                        }
+                    });
+                }
+            }
+
+            await tx.doctor_clinic_mapping.create({
+                data: {
+                    doctor_id: doctor.id,
+                    clinic_id: clinicId
+                }
+            });
+
+            return doctor;
+        });
+
+        ResponseHandler.created(res, result, 'Doctor registered and linked to clinic successfully');
     } catch (error) {
         next(error);
     }

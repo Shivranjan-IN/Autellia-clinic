@@ -15,6 +15,7 @@ import {
 import { Dashboard } from './Dashboard';
 import { AppointmentManagement } from './AppointmentManagement';
 import { Prescription } from './Prescription';
+import { TelemedicineConsultationEnhanced } from './TelemedicineConsultationEnhanced';
 import { PrescriptionRecords } from './PrescriptionRecords';
 import { LabDiagnostics } from './LabDiagnostics';
 import { ReportsAnalytics } from './ReportsAnalytics';
@@ -40,7 +41,8 @@ type DoctorView =
   | 'ai'
   | 'iot'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'video_consult';
 
 const menuItems = [
   { id: 'dashboard' as DoctorView, label: 'Dashboard', icon: LayoutDashboard },
@@ -62,7 +64,11 @@ export function DoctorDashboard({ user }: DoctorDashboardProps) {
 
   const handleStartAppointment = (appointment: any) => {
     setActiveAppointment(appointment);
-    setCurrentView('prescription');
+    if (appointment.mode === 'video') {
+      setCurrentView('video_consult');
+    } else {
+      setCurrentView('prescription');
+    }
   };
 
   const renderContent = () => {
@@ -89,6 +95,11 @@ export function DoctorDashboard({ user }: DoctorDashboardProps) {
         return <Notifications userRole={user.role as any} />;
       case 'settings':
         return <Settings userRole={user.role as any} />;
+      case 'video_consult':
+        return <TelemedicineConsultationEnhanced 
+                  onClose={() => setCurrentView('appointments')} 
+                  appointmentId={activeAppointment?.appointment_id} 
+                />;
       default:
         return <Dashboard userRole={user.role as any} />;
     }

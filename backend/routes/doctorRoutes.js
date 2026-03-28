@@ -9,8 +9,11 @@ router.use(protect);
 // Routes accessible by both patients and doctors (like fetching the doctor list)
 router.get('/', doctorController.getAllDoctors);
 
+// Clinic and Doctor Registration (Clinic Admin can register doctors)
+router.post('/register', authorize('clinic'), doctorController.registerDoctor);
+
 // Other doctor-specific routes require 'doctor' role
-router.use(authorize('doctor'));
+router.use(authorize('doctor', 'clinic'));
 
 // Patient Management
 router.get('/patients', doctorController.getDoctorPatients);

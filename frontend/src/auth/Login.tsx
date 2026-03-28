@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface LoginPageProps {
   onLogin: (user: User, token?: string) => void;
   onBack: () => void;
-  onRegister: (role: 'doctor' | 'clinic') => void;
+  onRegister: (role: 'doctor' | 'clinic' | 'lab') => void;
   initialTab?: 'email' | 'mobile';
 }
 
@@ -183,6 +183,15 @@ export function LoginPage({ onLogin, onBack, onRegister, initialTab = 'email' }:
                       required
                     />
                   </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => navigateTo('forgot-password')}
+                      className="text-[11px] font-semibold text-pink-600 hover:text-pink-700 hover:underline transition-colors"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
@@ -332,6 +341,12 @@ export function LoginPage({ onLogin, onBack, onRegister, initialTab = 'email' }:
                 className="w-full py-2 px-4 border border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium"
               >
                 Register Clinic
+              </button>
+              <button
+                onClick={() => onRegister('lab')}
+                className="w-full py-2 px-4 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium"
+              >
+                Register as Lab / Diagnostics
               </button>
             </div>
           </div>

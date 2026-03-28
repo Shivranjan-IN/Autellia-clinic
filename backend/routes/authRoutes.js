@@ -24,6 +24,11 @@ router.post('/register/clinic', upload.fields([
   { name: 'gst', maxCount: 1 }
 ]), authController.registerClinic);
 
+// Lab registration
+router.post('/register/lab', upload.fields([
+  { name: 'docs', maxCount: 1 }
+]), authController.registerLab);
+
 // Email/password login
 router.post('/login', authController.login);
 
@@ -40,5 +45,11 @@ router.get('/me', protect, authController.getCurrentUser);
 
 // Verify OTP
 router.post('/verify-otp', authController.verifyOtp);
+
+// Forgot Password
+router.post('/forgot-password', authController.forgotPassword);
+
+// Reset Password
+router.post('/reset-password', authController.resetPassword);
 
 module.exports = router;

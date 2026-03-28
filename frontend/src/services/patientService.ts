@@ -14,6 +14,7 @@ export interface Patient {
     address?: string;
     medical_history?: string;
     insurance_id?: string;
+    date_of_birth?: string | Date; // Added for profile
     email?: string;
     profile_photo_url?: string;
     allergies?: string[];
@@ -40,9 +41,10 @@ class PatientService {
         };
     }
 
-    async getPatients(): Promise<Patient[]> {
+    async getPatients(search: string = ''): Promise<Patient[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/patients`, {
+            const query = search ? `?search=${encodeURIComponent(search)}` : '';
+            const response = await fetch(`${API_BASE_URL}/api/patients${query}`, {
                 headers: await this.getAuthHeaders(),
             });
 

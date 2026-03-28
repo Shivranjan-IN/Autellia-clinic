@@ -48,7 +48,11 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
     gender: initialPatient.gender || 'Male',
     blood_group: initialPatient.bloodGroup || 'O+',
     address: initialPatient.address || '',
-    abha_id: initialPatient.abhaId || ''
+    abha_id: initialPatient.abhaId || '',
+    insurance_id: initialPatient.insuranceId || '',
+    date_of_birth: initialPatient.dob 
+      ? (typeof initialPatient.dob === 'string' ? initialPatient.dob.split('T')[0] : initialPatient.dob.toISOString().split('T')[0])
+      : ''
   });
   // Initialize medical data from patient prop or default to empty arrays
   const [allergies, setAllergies] = useState<string[]>(initialPatient.allergies || []);
@@ -75,7 +79,11 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
       gender: initialPatient.gender || 'Male',
       blood_group: initialPatient.bloodGroup || 'O+',
       address: initialPatient.address || '',
-      abha_id: initialPatient.abhaId || ''
+      abha_id: initialPatient.abhaId || '',
+      insurance_id: initialPatient.insuranceId || '',
+      date_of_birth: initialPatient.dob 
+        ? (typeof initialPatient.dob === 'string' ? initialPatient.dob.split('T')[0] : initialPatient.dob.toISOString().split('T')[0])
+        : ''
     });
     // Sync medical data from patient prop
     setAllergies(initialPatient.allergies || []);
@@ -133,6 +141,8 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
         blood_group: formData.blood_group,
         address: formData.address,
         abha_id: formData.abha_id,
+        insurance_id: formData.insurance_id,
+        date_of_birth: formData.date_of_birth ? new Date(formData.date_of_birth) : undefined,
         allergies: allergies,
         chronicDiseases: chronicDiseases,
         currentMedications: medications
@@ -149,6 +159,8 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
           bloodGroup: updated.blood_group || patient.bloodGroup,
           address: updated.address || patient.address,
           abhaId: updated.abha_id || patient.abhaId,
+          insuranceId: updated.insurance_id || patient.insuranceId,
+          dob: updated.date_of_birth || patient.dob,
           allergies: updated.allergies || allergies,
           chronicDiseases: updated.chronicDiseases || chronicDiseases,
           currentMedications: updated.currentMedications || medications
@@ -224,24 +236,65 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
           <h1 className="font-semibold text-gray-900 mb-1">My Profile</h1>
           <p className="text-sm text-gray-600">Manage your personal and medical information</p>
         </div>
-        <Button
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-          disabled={saving}
-          className={isEditing ? 'bg-gradient-to-r from-pink-600 to-purple-600' : ''}
-          variant={isEditing ? 'default' : 'outline'}
-        >
-          {saving ? 'Saving...' : (isEditing ? (
+        <div className="flex gap-2">
+          {isEditing ? (
             <>
-              <Save className="size-4 mr-2" />
-              Save Changes
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditing(false);
+                  // Reset form to current patient state
+                  setFormData({
+                    full_name: patient.name || '',
+                    email: patient.email || '',
+                    phone: patient.phone || '',
+                    age: patient.age || 0,
+                    gender: patient.gender || 'Male',
+                    blood_group: patient.bloodGroup || 'O+',
+                    address: patient.address || '',
+                    abha_id: patient.abhaId || '',
+                    insurance_id: patient.insuranceId || '',
+                    date_of_birth: patient.dob
+                      ? (typeof patient.dob === 'string' ? patient.dob.split('T')[0] : patient.dob.toISOString().split('T')[0])
+                      : ''
+                  });
+                  setAllergies(patient.allergies || []);
+                  setMedications(patient.currentMedications || []);
+                  setChronicDiseases(patient.chronicDiseases || []);
+                }}
+              >
+                <X className="size-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-gradient-to-r from-pink-600 to-purple-600 text-white"
+              >
+                {saving ? (
+                  <>
+                    <Save className="size-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="size-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
             </>
           ) : (
-            <>
+            <Button
+              onClick={() => setIsEditing(true)}
+              variant="outline"
+              className="border-pink-300 text-pink-700 hover:bg-pink-50"
+            >
               <Edit className="size-4 mr-2" />
               Edit Profile
-            </>
-          ))}
-        </Button>
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -342,6 +395,12 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
               </TabsList>
 
               <TabsContent value="personal" className="space-y-4 mt-4">
+                {!isEditing && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-sm text-amber-700">
+                    <Edit className="size-4 shrink-0" />
+                    Click <strong>Edit Profile</strong> above to make changes.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="fullName">Full Name</Label>
@@ -350,17 +409,18 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                       value={formData.full_name}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                       disabled={!isEditing}
-                      className="mt-2"
+                      className={`mt-2 ${isEditing ? 'border-pink-400 ring-1 ring-pink-300' : 'bg-gray-50'}`}
+                      placeholder="Enter your full name"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email (read-only)</Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
-                      disabled={true} // Email usually not editable for session consistency
-                      className="mt-2"
+                      disabled={true}
+                      className="mt-2 bg-gray-100 text-gray-500 cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -370,7 +430,8 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       disabled={!isEditing}
-                      className="mt-2"
+                      className={`mt-2 ${isEditing ? 'border-pink-400 ring-1 ring-pink-300' : 'bg-gray-50'}`}
+                      placeholder="Enter phone number"
                     />
                   </div>
                   <div>
@@ -381,39 +442,66 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                       value={formData.age}
                       onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
                       disabled={!isEditing}
-                      className="mt-2"
+                      className={`mt-2 ${isEditing ? 'border-pink-400 ring-1 ring-pink-300' : 'bg-gray-50'}`}
+                      placeholder="Enter age"
                     />
                   </div>
                   <div>
                     <Label htmlFor="gender">Gender</Label>
-                    <Input
-                      id="gender"
-                      value={formData.gender}
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      disabled={!isEditing}
-                      className="mt-2"
-                    />
+                    {isEditing ? (
+                      <select
+                        id="gender"
+                        value={formData.gender}
+                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                        className="mt-2 w-full h-10 px-3 rounded-md border border-pink-400 ring-1 ring-pink-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    ) : (
+                      <Input id="gender" value={formData.gender} disabled className="mt-2 bg-gray-50" />
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="bloodGroup">Blood Group</Label>
+                    {isEditing ? (
+                      <select
+                        id="bloodGroup"
+                        value={formData.blood_group}
+                        onChange={(e) => setFormData({ ...formData, blood_group: e.target.value })}
+                        className="mt-2 w-full h-10 px-3 rounded-md border border-pink-400 ring-1 ring-pink-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      >
+                        {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
+                          <option key={bg} value={bg}>{bg}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input id="bloodGroup" value={formData.blood_group} disabled className="mt-2 bg-gray-50" />
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="dob">Date of Birth</Label>
                     <Input
-                      id="bloodGroup"
-                      value={formData.blood_group}
-                      onChange={(e) => setFormData({ ...formData, blood_group: e.target.value })}
+                      id="dob"
+                      type="date"
+                      value={formData.date_of_birth}
+                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                       disabled={!isEditing}
-                      className="mt-2"
+                      className={`mt-2 ${isEditing ? 'border-pink-400 ring-1 ring-pink-300' : 'bg-gray-50'}`}
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="address">Address</Label>
+                  <Label htmlFor="address">Residential Address</Label>
                   <Textarea
                     id="address"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     disabled={!isEditing}
                     rows={3}
-                    className="mt-2"
+                    className={`mt-2 ${isEditing ? 'border-pink-400 ring-1 ring-pink-300' : 'bg-gray-50'}`}
+                    placeholder="Enter your full address"
                   />
                 </div>
               </TabsContent>
@@ -439,6 +527,17 @@ export function PatientProfile({ patient: initialPatient, onProfileUpdate }: Pat
                         />
                         <Badge className="bg-green-600">Verified</Badge>
                       </div>
+                    </div>
+                    {/* Insurance ID */}
+                    <div>
+                      <Label>Insurance ID</Label>
+                      <Input
+                        value={formData.insurance_id}
+                        onChange={(e) => setFormData({ ...formData, insurance_id: e.target.value })}
+                        disabled={!isEditing}
+                        className="mt-2 bg-white"
+                        placeholder="Enter your Insurance ID"
+                      />
                     </div>
 
                     {/* Blood Group */}

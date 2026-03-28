@@ -101,4 +101,10 @@ export const labAPI = {
     getTestTypes: () => api.get('/labs/test-types'),
 };
 
+// Analytics API
+export const analyticsAPI = {
+    getStats: () => api.get('/analytics/stats'),
+    getCharts: () => api.get('/analytics/charts'),
+};
+
 export default api;

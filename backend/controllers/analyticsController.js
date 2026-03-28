@@ -3,8 +3,9 @@ const analyticsModel = require('../models/analyticsModel');
 const analyticsController = {
     getStats: async (req, res) => {
         try {
-            const clinicId = req.user.role === 'clinic' ? req.user.id : null;
-            const stats = await analyticsModel.getDashboardStats(clinicId);
+            const clinicId = req.user.role === 'clinic' ? req.user.clinic_id : null;
+            const doctorId = req.user.role === 'doctor' ? req.user.doctor_id : null;
+            const stats = await analyticsModel.getDashboardStats(clinicId, doctorId);
 
             res.status(200).json({
                 success: true,
@@ -22,13 +23,14 @@ const analyticsController = {
 
     getChartData: async (req, res) => {
         try {
-            const clinicId = req.user.role === 'clinic' ? req.user.id : null;
+            const clinicId = req.user.role === 'clinic' ? req.user.clinic_id : null;
+            const doctorId = req.user.role === 'doctor' ? req.user.doctor_id : null;
 
             const [dailyAppointments, revenueTrend, visitDist, doctorPerf] = await Promise.all([
-                analyticsModel.getDailyAppointments(clinicId),
-                analyticsModel.getRevenueTrend(clinicId),
-                analyticsModel.getPatientVisitDistribution(clinicId),
-                analyticsModel.getDoctorPerformance(clinicId)
+                analyticsModel.getDailyAppointments(clinicId, doctorId),
+                analyticsModel.getRevenueTrend(clinicId, doctorId),
+                analyticsModel.getPatientVisitDistribution(clinicId, doctorId),
+                analyticsModel.getDoctorPerformance(clinicId, doctorId)
             ]);
 
             res.status(200).json({

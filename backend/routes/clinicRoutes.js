@@ -41,6 +41,7 @@ router.get('/queue', clinicPatientController.getQueue);
 // 6. Doctor Management
 router.get('/doctors', clinicStaffController.getDoctors);
 router.post('/doctors', clinicStaffController.addDoctor);
+router.put('/doctors/:id', clinicStaffController.updateDoctor);
 router.delete('/doctors/:id', clinicStaffController.removeDoctor);
 
 // 7. Staff Management

@@ -42,9 +42,13 @@ exports.getAllPatients = async (req, res, next) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
+        const search = req.query.search || '';
+        
+        // If doctor is logged in, restrict to their patients
+        const doctorId = req.user.role === 'doctor' ? req.user.doctor_id : null;
 
-        const patients = await Patient.findAll(limit, offset);
-        const total = await Patient.count();
+        const patients = await Patient.findAll(limit, offset, doctorId, search);
+        const total = await Patient.count(doctorId, search);
 
         ResponseHandler.success(res, {
             patients,
@@ -92,12 +96,28 @@ exports.getPatientProfile = async (req, res, next) => {
         const allergies = await Patient.getAllergies(patient.patient_id);
         const conditions = await Patient.getConditions(patient.patient_id);
 
+        // Parse medical history for medications if it's stored as JSON
+        let medications = [];
+        if (patient.medical_history) {
+            try {
+                const history = JSON.parse(patient.medical_history);
+                if (history && history.currentMedications) {
+                    medications = history.currentMedications;
+                }
+            } catch (e) {
+                // If not JSON, treat it as a string or empty
+                console.log('Medical history is not JSON or empty');
+            }
+        }
+
         // Add medical data to patient object
         const patientWithMedicalData = {
             ...patient,
+            phone: patient.users?.contact_numbers?.[0]?.phone_number || '',
+            address: patient.address?.address || '',
             allergies: allergies.map(a => a.allergy_name),
             chronicDiseases: conditions.filter(c => c.is_chronic).map(c => c.condition_name),
-            currentMedications: []
+            currentMedications: medications
         };
 
         ResponseHandler.success(res, patientWithMedicalData, 'Session-based patient profile retrieved');
@@ -125,6 +145,16 @@ exports.updatePatientProfile = async (req, res, next) => {
 
         const { allergies, chronicDiseases, currentMedications, ...profileData } = req.body;
 
+        // Correctly handle age and numeric fields
+        if (profileData.age) profileData.age = parseInt(profileData.age, 10);
+
+        // Store currentMedications in medical_history as JSON
+        if (currentMedications !== undefined) {
+            profileData.medical_history = JSON.stringify({
+                currentMedications: currentMedications
+            });
+        }
+
         // Update basic profile data
         const updated = await Patient.update(patient.patient_id, profileData);
 
@@ -144,6 +174,8 @@ exports.updatePatientProfile = async (req, res, next) => {
 
         const finalPatient = {
             ...updated,
+            phone: updated.users?.contact_numbers?.[0]?.phone_number || phone || '',
+            address: updated.address?.address || address || '',
             allergies: updatedAllergies.map(a => a.allergy_name),
             chronicDiseases: updatedConditions.filter(c => c.is_chronic).map(c => c.condition_name),
             currentMedications: currentMedications || []

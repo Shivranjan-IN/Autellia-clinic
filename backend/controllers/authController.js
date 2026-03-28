@@ -8,6 +8,9 @@ const ResponseHandler = require('../utils/responseHandler');
 const { validatePAN, validateIFSC, validateGSTIN } = require('../utils/validators');
 const prisma = require('../config/database');
 const { uploadToSupabase, deleteFromSupabase } = require('../utils/supabaseStorage');
+const { v4: uuidv4 } = require('uuid');
+const { sendOTP } = require('../utils/mailService');
+const crypto = require('crypto');
 
 exports.googleAuth = (req, res, next) => {
   console.log('Google auth route hit');
@@ -690,41 +693,293 @@ exports.registerClinic = async (req, res, next) => {
   }
 };
 
+exports.registerLab = async (req, res, next) => {
+  try {
+    const {
+      name,
+      owner_name,
+      lab_type,
+      registration_number,
+      established_year,
+      contact_number,
+      email,
+      address,
+      city,
+      state,
+      pin_code,
+      license_number,
+      certification,
+      gst_number,
+      username,
+      password,
+      tests,
+      homeCollection,
+      reportTime
+    } = req.body;
+
+    if (!name || !email || !contact_number || !password || !address || !city || !license_number || !username) {
+      return ResponseHandler.badRequest(res, 'Please provide all required fields');
+    }
+
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      return ResponseHandler.badRequest(res, 'User already exists with this email');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await User.create({
+      full_name: name,
+      email: email, // Can also use username if you want email-less login, but schema requires email
+      mobile_number: contact_number,
+      password_hash: hashedPassword,
+      role: 'lab'
+    });
+
+    const labAddress = await prisma.addresses.create({
+      data: {
+        address: address,
+        pin_code: pin_code || null,
+        city: city,
+        state: state || null
+      }
+    });
+
+    const newLab = await prisma.labs.create({
+      data: {
+        name: name,
+        owner_name: owner_name || null,
+        lab_type: lab_type || 'pathology',
+        registration_number: registration_number || null,
+        establishment_year: established_year ? parseInt(established_year) : null,
+        contact_number: contact_number,
+        email: email,
+        address_id: labAddress.address_id,
+        license_number: license_number,
+        gst_number: gst_number || null,
+        certification: certification || null,
+        user_id: newUser.user_id
+      }
+    });
+
+    // Parse and Insert tests
+    let parsedTests = [];
+    if (tests) {
+      if (typeof tests === 'string') {
+        try { parsedTests = JSON.parse(tests); } catch (e) { console.error("Failed parsing tests"); }
+      } else if (Array.isArray(tests)) {
+        parsedTests = tests;
+      }
+    }
+
+    if (parsedTests.length > 0) {
+      await prisma.lab_tests.createMany({
+        data: parsedTests.map(t => ({
+          lab_id: newLab.lab_id,
+          test_name: t.testName || t.test_name,
+          category: t.category || 'Blood',
+          price: t.price ? parseFloat(t.price) : 0,
+          report_time: reportTime || '24 Hours',
+          home_collection: homeCollection === 'true' || homeCollection === true
+        }))
+      });
+    }
+
+    // Handle Document uploads just like Clinic registration
+    if (req.files && req.files.docs && req.files.docs[0]) {
+      const file = req.files.docs[0];
+      const uploadResult = await uploadToSupabase(
+        file.buffer,
+        file.originalname,
+        'labs/documents'
+      );
+      if (uploadResult.success) {
+        // Here you could save document details to a "lab_documents" table if it exists
+        // Currently 'labs' doesn't have a document relation but Supabase has the file
+        console.log("Lab document uploaded securely:", uploadResult.url);
+      }
+    }
+
+    const token = jwt.sign(
+      { id: newUser.user_id, role: newUser.role },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: process.env.JWT_EXPIRE || '24h' }
+    );
+
+    const userResponse = {
+      user_id: newUser.user_id,
+      full_name: newUser.full_name,
+      email: newUser.email,
+      role: newUser.role.toLowerCase()
+    };
+
+    ResponseHandler.success(res, { token, user: userResponse, lab: newLab }, 'Lab registration successful');
+  } catch (error) {
+    console.error('Lab registration error:', error);
+    next(error);
+  }
+};
+
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return ResponseHandler.badRequest(res, 'Email is required');
+    }
+
+    // Check if user exists
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return ResponseHandler.badRequest(res, 'User not found');
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 120 seconds
+
+    // Create OTP record
+    await prisma.otp_records.create({
+      data: {
+        id: uuidv4(),
+        email: email,
+        otp_hash: otpHash,
+        expires_at: expiresAt,
+        attempts: 0,
+        max_attempts: 3,
+        status: 'PENDING',
+        created_at: new Date()
+      }
+    });
+
+    // Send email
+    const mailSent = await sendOTP(email, otp);
+    if (!mailSent) {
+      return res.status(500).json({ success: false, message: 'Failed to send OTP' });
+    }
+
+    ResponseHandler.success(res, null, 'OTP sent to your email. Valid for 120 seconds.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.verifyOtp = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
-    // Validate required fields
     if (!email || !otp) {
       return ResponseHandler.badRequest(res, 'Email and OTP are required');
     }
 
-    // For demo, accept OTP 123456
-    if (otp === '123456') {
-      // Find user
-      const user = await User.findByEmail(email);
-      if (!user) {
-        return ResponseHandler.badRequest(res, 'User not found');
-      }
+    // Use a transaction to find and verify
+    const otpRecord = await prisma.otp_records.findFirst({
+      where: {
+        email: email,
+        status: 'PENDING',
+        expires_at: { gt: new Date() }
+      },
+      orderBy: { created_at: 'desc' }
+    });
 
-      // Create token
-      const token = jwt.sign(
-        { id: user.user_id, role: user.role },
-        process.env.JWT_SECRET || 'fallback-secret',
-        { expiresIn: process.env.JWT_EXPIRE || '24h' }
-      );
+    if (!otpRecord) {
+      return ResponseHandler.badRequest(res, 'Invalid or expired OTP');
+    }
 
-      const userResponse = {
-        user_id: user.user_id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role ? user.role.toLowerCase() : 'patient'
-      };
+    // Check attempts
+    if (otpRecord.attempts >= otpRecord.max_attempts) {
+      await prisma.otp_records.update({
+        where: { id: otpRecord.id },
+        data: { status: 'EXPIRED' }
+      });
+      return ResponseHandler.badRequest(res, 'Max attempts reached. Request a new OTP.');
+    }
 
-      res.status(200).json({ token, user: userResponse });
-    } else {
+    // Verify OTP hash
+    const isOTPValid = await bcrypt.compare(otp, otpRecord.otp_hash);
+    
+    // Increment attempts
+    await prisma.otp_records.update({
+      where: { id: otpRecord.id },
+      data: { attempts: otpRecord.attempts + 1 }
+    });
+
+    if (!isOTPValid) {
       return ResponseHandler.badRequest(res, 'Invalid OTP');
     }
+
+    // Generate a temporary reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = await bcrypt.hash(resetToken, 10);
+
+    // Update record as verified and store token hash
+    await prisma.otp_records.update({
+      where: { id: otpRecord.id },
+      data: {
+        status: 'VERIFIED',
+        verified_at: new Date(),
+        token: tokenHash
+      }
+    });
+
+    ResponseHandler.success(res, { resetToken }, 'OTP verified successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { email, resetToken, newPassword } = req.body;
+
+    if (!email || !resetToken || !newPassword) {
+      return ResponseHandler.badRequest(res, 'Email, reset token and new password are required');
+    }
+
+    // Find the verified OTP record with this token
+    const otpRecord = await prisma.otp_records.findFirst({
+      where: {
+        email: email,
+        status: 'VERIFIED',
+        token: { not: null }, // It should have a token hash
+        verified_at: { gt: new Date(Date.now() - 10 * 60 * 1000) } // Token valid for 10 mins after verification
+      },
+      orderBy: { verified_at: 'desc' }
+    });
+
+    if (!otpRecord) {
+      return ResponseHandler.badRequest(res, 'Invalid or expired reset session');
+    }
+
+    // Verify token hash
+    const isTokenValid = await bcrypt.compare(resetToken, otpRecord.token);
+    if (!isTokenValid) {
+      return ResponseHandler.badRequest(res, 'Invalid reset token');
+    }
+
+    // Find user
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return ResponseHandler.badRequest(res, 'User not found');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password
+    await prisma.users.update({
+      where: { user_id: user.user_id },
+      data: { password_hash: hashedPassword }
+    });
+
+    // Mark token as used
+    await prisma.otp_records.update({
+      where: { id: otpRecord.id },
+      data: { status: 'USED' }
+    });
+
+    ResponseHandler.success(res, null, 'Password reset successful. You can now login.');
   } catch (error) {
     next(error);
   }

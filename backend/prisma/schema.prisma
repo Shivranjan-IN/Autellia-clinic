@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model ai_action_logs {
@@ -104,9 +105,9 @@ model patients {
   wallet_transactions        wallet_transactions[]
 
   @@index([full_name], map: "idx_patients_name")
-  @@index([full_name(ops: raw("gin_trgm_ops"))], map: "idx_patients_search", type: Gin)
+  // @@index([full_name(ops: raw("gin_trgm_ops"))], map: "idx_patients_search", type: Gin)
   @@index([user_id], map: "idx_patients_user")
-  @@index([full_name(ops: raw("gin_trgm_ops"))], map: "patients_name_search", type: Gin)
+  // @@index([full_name(ops: raw("gin_trgm_ops"))], map: "patients_name_search", type: Gin)
 }
 
 model clinics {
@@ -143,6 +144,7 @@ model clinics {
   purchase_orders        purchase_orders[]
   clinic_staff           clinic_staff[]
   appointments           appointments[]
+  clinic_lab_mapping     clinic_lab_mapping[]
 }
 
 model doctors {
@@ -232,6 +234,7 @@ model users {
   is_active                     Boolean?                       @default(true)
   two_factor_enabled            Boolean?                       @default(false)
   created_at                    DateTime?                      @default(now()) @db.Timestamp(6)
+  google_id                     String?                        @unique(map: "unique_google") @db.VarChar(255)
   role                          String?                        @db.VarChar
   role_id                       Int?
   analytics_events              analytics_events[]
@@ -247,6 +250,8 @@ model users {
   transactions                  transactions[]
   user_notification_preferences user_notification_preferences?
   roles                         roles?                         @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_role")
+  labs                          labs?
+  lab_staff                     lab_staff?
 }
 
 model prescriptions {
@@ -437,6 +442,7 @@ model lab_orders {
   lab_order_id     String             @id @db.VarChar
   patient_id       String?            @db.VarChar
   doctor_id        Int?
+  lab_id           Int?
   priority         String?            @default("Normal") @db.VarChar
   order_date       DateTime?          @default(dbgenerated("CURRENT_DATE")) @db.Date
   status           String?            @db.VarChar
@@ -446,11 +452,13 @@ model lab_orders {
   clinic           clinics?           @relation(fields: [clinic_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_clinic")
   doctor           doctors?           @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_doctor")
   patient          patients?          @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_patient")
+  labs             labs?              @relation(fields: [lab_id], references: [lab_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_lab")
   lab_samples      lab_samples[]
   lab_test_results lab_test_results[]
 
   @@index([doctor_id], map: "idx_lab_orders_doctor")
   @@index([patient_id], map: "idx_lab_orders_patient")
+  @@index([lab_id], map: "idx_lab_orders_lab")
 }
 
 model doctor_payouts {
@@ -492,8 +500,10 @@ model medical_records {
 
 model otp_records {
   id            String    @id @db.Uuid
-  mobile_number String    @db.VarChar
+  mobile_number String?   @db.VarChar
+  email         String?   @db.VarChar
   otp_hash      String    @db.VarChar
+  token         String?   @db.VarChar
   expires_at    DateTime  @db.Timestamp(6)
   attempts      Int
   max_attempts  Int
@@ -959,7 +969,7 @@ model orders {
   order_items         order_items[]
   address             addresses?           @relation(fields: [address_id], references: [address_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_address")
   patients            patients?            @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_patient")
-  order_status_master order_status_master? @relation(fields: [status], references: [status_code], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_status")
+  // order_status_master order_status_master? @relation(fields: [status], references: [status_code], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_status")
 
   @@index([patient_id], map: "idx_orders_patient")
 }
@@ -974,6 +984,7 @@ model addresses {
   doctor_practice_locations doctor_practice_locations[]
   orders                    orders[]
   patients                  patients[]
+  labs                      labs[]
 }
 
 model bank_accounts {
@@ -1095,7 +1106,7 @@ model notifications_unified {
 model order_status_master {
   status_code String   @id @db.VarChar
   description String?
-  orders      orders[]
+  // orders      orders[]
 }
 
 model patient_risk_alerts {
@@ -1130,4 +1141,71 @@ model transactions {
   appointments     appointments? @relation(fields: [appointment_id], references: [appointment_id], onUpdate: NoAction, map: "fk_transactions_appointment")
 
   @@index([created_at], map: "idx_transactions_date")
+}
+
+model labs {
+  lab_id              Int                  @id @default(autoincrement())
+  user_id             Int?                 @unique
+  name                String               @db.VarChar
+  owner_name          String?              @db.VarChar
+  lab_type            String?              @db.VarChar
+  registration_number String?              @db.VarChar
+  establishment_year  Int?
+  contact_number      String?              @db.VarChar
+  email               String?              @db.VarChar
+  address_id          Int?
+  license_number      String?              @db.VarChar
+  gst_number          String?              @db.VarChar
+  certification       String?              @db.VarChar
+  created_at          DateTime?            @default(now()) @db.Timestamp(6)
+  users               users?               @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  address             addresses?           @relation(fields: [address_id], references: [address_id], onDelete: NoAction, onUpdate: NoAction)
+  lab_tests           lab_tests[]
+  clinic_lab_mapping  clinic_lab_mapping[]
+  lab_orders          lab_orders[]
+  lab_staff           lab_staff[]
+}
+
+model lab_staff {
+  id            Int       @id @default(autoincrement())
+  lab_id        Int
+  full_name     String    @db.VarChar
+  email         String?   @db.VarChar
+  phone         String?   @db.VarChar
+  role          String?   @db.VarChar
+  department    String?   @db.VarChar
+  password_hash String?
+  is_active     Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  user_id       Int?      @unique
+  users         users?    @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_staff_user")
+  labs          labs      @relation(fields: [lab_id], references: [lab_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_lab_staff_lab")
+
+  @@index([lab_id], map: "idx_lab_staff_lab")
+}
+
+model lab_tests {
+  test_id         Int      @id @default(autoincrement())
+  lab_id          Int
+  test_name       String   @db.VarChar
+  category        String?  @db.VarChar
+  price           Decimal? @db.Decimal
+  report_time     String?  @db.VarChar
+  home_collection Boolean? @default(false)
+  labs            labs     @relation(fields: [lab_id], references: [lab_id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model clinic_lab_mapping {
+  id             Int       @id @default(autoincrement())
+  clinic_id      Int
+  lab_id         Int?
+  manual_name    String?   @db.VarChar
+  manual_contact String?   @db.VarChar
+  manual_address String?
+  manual_tests   String?
+  mapping_type   String    @db.VarChar
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  clinics        clinics   @relation(fields: [clinic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  labs           labs?     @relation(fields: [lab_id], references: [lab_id], onDelete: Cascade, onUpdate: NoAction)
 }

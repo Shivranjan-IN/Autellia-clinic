@@ -131,7 +131,144 @@ const labModel = {
         });
     },
 
-    getTestTypes: async () => {
+    getLabByUserId: async (userId) => {
+        return await prisma.labs.findUnique({
+            where: { user_id: parseInt(userId) },
+            include: { address: true }
+        });
+    },
+
+    getLabDashboardStats: async (labId) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const [totalTestsToday, totalBookings, pendingReports, completedReports, revenue] = await Promise.all([
+            prisma.lab_orders.count({
+                where: {
+                    lab_id: labId,
+                    order_date: { gte: today }
+                }
+            }),
+            prisma.lab_orders.count({
+                where: { lab_id: labId }
+            }),
+            prisma.lab_orders.count({
+                where: { lab_id: labId, status: { not: 'Completed' } }
+            }),
+            prisma.lab_orders.count({
+                where: { lab_id: labId, status: 'Completed' }
+            }),
+            prisma.lab_order_items.aggregate({
+                where: { lab_orders: { lab_id: labId, status: 'Completed' } },
+                _sum: { price: true }
+            })
+        ]);
+
+        const recentActivity = await prisma.lab_orders.findMany({
+            where: { lab_id: labId },
+            include: {
+                patient: { select: { full_name: true } }
+            },
+            orderBy: { order_date: 'desc' },
+            take: 5
+        });
+
+        return {
+            totalTestsToday,
+            totalBookings,
+            pendingReports,
+            completedReports,
+            revenueSummary: revenue._sum.price || 0,
+            recentActivity
+        };
+    },
+
+    getLabBookings: async (labId, filters = {}) => {
+        const where = { lab_id: labId };
+        if (filters.status) where.status = filters.status;
+        if (filters.date) {
+            const date = new Date(filters.date);
+            date.setHours(0, 0, 0, 0);
+            const nextDay = new Date(date);
+            nextDay.setDate(date.getDate() + 1);
+            where.order_date = { gte: date, lt: nextDay };
+        }
+
+        return await prisma.lab_orders.findMany({
+            where,
+            include: {
+                patient: {
+                    select: {
+                        full_name: true,
+                        gender: true,
+                        date_of_birth: true
+                    }
+                },
+                doctor: { select: { full_name: true } },
+                lab_order_items: { include: { lab_test_types: true } }
+            },
+            orderBy: { order_date: 'desc' }
+        });
+    },
+
+    getLabTests: async (labId) => {
+        return await prisma.lab_tests.findMany({
+            where: { lab_id: labId },
+            orderBy: { test_name: 'asc' }
+        });
+    },
+
+    addLabTest: async (data) => {
+        return await prisma.lab_tests.create({ data });
+    },
+
+    updateLabTest: async (testId, data) => {
+        return await prisma.lab_tests.update({
+            where: { test_id: parseInt(testId) },
+            data
+        });
+    },
+
+    deleteLabTest: async (testId) => {
+        return await prisma.lab_tests.delete({
+            where: { test_id: parseInt(testId) }
+        });
+    },
+
+    getLabStaff: async (labId) => {
+        return await prisma.lab_staff.findMany({
+            where: { lab_id: labId },
+            orderBy: { full_name: 'asc' }
+        });
+    },
+
+    addLabStaff: async (data) => {
+        return await prisma.lab_staff.create({ data });
+    },
+
+    updateLabStaff: async (staffId, data) => {
+        return await prisma.lab_staff.update({
+            where: { id: parseInt(staffId) },
+            data
+        });
+    },
+
+    getClinicConnections: async (labId) => {
+        return await prisma.clinic_lab_mapping.findMany({
+            where: { lab_id: labId },
+            include: {
+                clinics: {
+                    select: {
+                        clinic_name: true,
+                        medical_council_reg_no: true,
+                        address: true
+                    }
+                }
+            }
+        });
+    },
+
+    getAllTestTypes: async () => {
         return await prisma.lab_test_types.findMany({
             orderBy: { test_name: 'asc' }
         });

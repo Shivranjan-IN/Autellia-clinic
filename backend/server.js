@@ -31,6 +31,10 @@ const clinicDocumentRoutes = require('./routes/clinicDocumentRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
 const labRoutes = require('./routes/labRoutes');
 const prescriptionRoutes = require('./routes/prescriptionRoutes');
+const aiRoutes = require('./routes/aiRoutes').default;
+const clinicAiRoutes = require('./routes/clinicAiRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
+require('./ai/flows/index');
 
 const app = express();
 
@@ -86,6 +90,9 @@ app.use('/api/devices', deviceRoutes);
 app.use('/api/labs', labRoutes);
 app.use('/api/lab', labRoutes); // Also mount at /api/lab for frontend compatibility
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/clinic-ai', clinicAiRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Error handling
 app.use(errorHandler);

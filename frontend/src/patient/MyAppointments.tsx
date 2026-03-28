@@ -83,24 +83,50 @@ export function MyAppointments({ patient, onNavigate }: MyAppointmentsProps) {
   const fetchAvailableSlots = async (doctorId: string, dateStr: string) => {
     try {
       setLoadingSlots(true);
-      const res = await api.get(`/appointments/booked-slots/${doctorId}/${dateStr}`);
-      const booked = res.data?.data?.bookedSlots || [];
+      // Pass patientId to ensure busy times for the patient are also blocked
+      const res = await api.get(`/appointments/booked-slots/${doctorId}/${dateStr}?patientId=${patient.id}`);
+      const bookedData = res.bookedSlots || res.data?.bookedSlots || [];
+      
       const allSlots = [
         '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
         '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'
       ];
-      setAvailableSlots(allSlots.filter(s => !booked.includes(s)));
+      
+      const now = new Date();
+      const [year, month, day] = dateStr.split('-').map(Number);
+      
+      const filtered = allSlots.filter(time => {
+        // 1. Check if it's in the backend's "booked" list
+        const isBooked = bookedData.some((bookedTime: string) => bookedTime.trim() === time.trim());
+        if (isBooked) return false;
+
+        // 2. Filter out past time slots if date is today
+        const [timePart, modifier] = time.split(' ');
+        let [hours, minutes] = timePart.split(':').map(Number);
+        if (modifier === 'PM' && hours !== 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+
+        const slotDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+        // Minimum 1 hour in advance
+        const minAllowedTime = new Date(now.getTime() + 60 * 60 * 1000);
+        
+        return slotDateTime >= minAllowedTime;
+      });
+
+      setAvailableSlots(filtered);
     } catch (e) {
-      console.error('Failed to fetch slots', e);
+      console.error('Failed to fetch available slots', e);
       setAvailableSlots([]);
     } finally {
       setLoadingSlots(false);
     }
   };
-
+   // Re-fetch when date changes
   useEffect(() => {
     if (rescheduleApt && rescheduleDate) {
       fetchAvailableSlots(rescheduleApt.doctor_id, rescheduleDate);
+    } else {
+        setAvailableSlots([]);
     }
   }, [rescheduleDate, rescheduleApt]);
 
@@ -268,15 +294,29 @@ export function MyAppointments({ patient, onNavigate }: MyAppointmentsProps) {
                     </td>
                   </tr>
                 ) : (
-                  filteredAppointments.map((apt, index) => {
+                      filteredAppointments.map((apt, index) => {
                     const appointmentDate = new Date(apt.appointment_date);
                     const formattedDate = appointmentDate.toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric'
                     });
-                    const formattedTime = apt.appointment_time || 'TBD';
-                    const doctorInitials = apt.doctor.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    
+                    const formatTime = (timeStr: string | null | undefined) => {
+                      if (!timeStr) return 'TBD';
+                      if (timeStr.includes('AM') || timeStr.includes('PM')) return timeStr;
+                      try {
+                        const date = new Date(timeStr);
+                        const hour = date.getUTCHours();
+                        const minute = date.getUTCMinutes();
+                        const ampm = hour >= 12 ? 'PM' : 'AM';
+                        const displayHour = hour % 12 || 12;
+                        return `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${ampm}`;
+                      } catch (e) { return timeStr; }
+                    };
+
+                    const formattedTime = formatTime(apt.appointment_time);
+                    const doctorInitials = (apt.doctor?.full_name || 'D').split(' ').map(n => n[0]).join('').toUpperCase();
                     const canJoin = apt.status === 'scheduled' && apt.mode === 'video';
 
                     return (
@@ -299,7 +339,7 @@ export function MyAppointments({ patient, onNavigate }: MyAppointmentsProps) {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium text-gray-900">{apt.doctor.full_name}</p>
+                              <p className="font-medium text-gray-900">{apt.doctor?.full_name || 'Unknown Doctor'}</p>
                               <p className="text-sm text-gray-600">{apt.clinic?.clinic_name || 'Clinic'}</p>
                             </div>
                           </div>
@@ -363,7 +403,19 @@ export function MyAppointments({ patient, onNavigate }: MyAppointmentsProps) {
                             )}
                             {apt.status === 'scheduled' && !canJoin && (
                               <>
-                                <Button size="sm" variant="outline" onClick={() => setRescheduleApt(apt)}>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    setRescheduleApt(apt);
+                                    // Extract date part from ISO string
+                                    const datePart = apt.appointment_date.includes('T') 
+                                      ? apt.appointment_date.split('T')[0] 
+                                      : apt.appointment_date;
+                                    setRescheduleDate(datePart);
+                                    setRescheduleTime('');
+                                  }}
+                                >
                                   <Calendar className="size-4 mr-1" />
                                   Reschedule
                                 </Button>

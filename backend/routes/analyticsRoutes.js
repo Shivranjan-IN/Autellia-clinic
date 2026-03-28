@@ -5,7 +5,7 @@ const { protect, authorize } = require('../middleware/auth');
 
 // Only staff and admins can see analytics
 router.use(protect);
-router.use(authorize('admin', 'clinic'));
+router.use(authorize('admin', 'clinic', 'doctor'));
 
 router.get('/stats', analyticsController.getStats);
 router.get('/charts', analyticsController.getChartData);

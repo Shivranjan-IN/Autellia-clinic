@@ -139,13 +139,101 @@ const labController = {
         }
     },
 
-    // Get all lab test types
+    // Get current lab profile for logged in user
+    getLabProfile: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            res.json({ success: true, data: lab });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // Dashboard Stats
+    getDashboardStats: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            const stats = await labModel.getLabDashboardStats(lab.lab_id);
+            res.json({ success: true, data: stats });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // Lab Test Catalog
+    getInventory: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            const tests = await labModel.getLabTests(lab.lab_id);
+            res.json({ success: true, data: tests });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    saveInventory: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            const { test_id, ...data } = req.body;
+            let result;
+            if (test_id) {
+                result = await labModel.updateLabTest(test_id, data);
+            } else {
+                result = await labModel.addLabTest({ ...data, lab_id: lab.lab_id });
+            }
+            res.json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // Lab Staff
+    getStaff: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            const staff = await labModel.getLabStaff(lab.lab_id);
+            res.json({ success: true, data: staff });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // Lab Bookings
+    getLabBookings: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            const bookings = await labModel.getLabBookings(lab.lab_id, req.query);
+            res.json({ success: true, data: bookings });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // Clinic Connections
+    getClinicConnections: async (req, res) => {
+        try {
+            const lab = await labModel.getLabByUserId(req.user.user_id);
+            if (!lab) return res.status(404).json({ success: false, message: 'Lab profile not found' });
+            const connections = await labModel.getClinicConnections(lab.lab_id);
+            res.json({ success: true, data: connections });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // Get all available test types
     getTestTypes: async (req, res) => {
         try {
-            const types = await labModel.getTestTypes();
+            const testTypes = await labModel.getAllTestTypes();
             res.status(200).json({
                 success: true,
-                data: types
+                data: testTypes
             });
         } catch (error) {
             console.error('Error fetching test types:', error);

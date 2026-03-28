@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -9,8 +9,11 @@ import {
   Bookmark,
   BookMarked,
   Camera,
-  FileText
+  FileText,
+  X,
+  AlertCircle
 } from 'lucide-react';
+
 import { Card, CardContent } from '../common/ui/card';
 import { Button } from '../common/ui/button';
 import { Input } from '../common/ui/input';
@@ -30,12 +33,16 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
   const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<string[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchMedicines();
     fetchCart();
     fetchBookmarks();
   }, [category, searchQuery]);
+
 
   const fetchMedicines = async () => {
     try {
@@ -98,21 +105,87 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
     return item?.quantity || 0;
   };
 
-  const handleScanPrescription = async (_type: 'upload' | 'camera') => {
-    // Simulated OCR Scanning
+  const handleScanPrescription = async (type: 'upload' | 'camera') => {
+    if (type === 'upload') {
+      fileInputRef.current?.click();
+    } else {
+      startCamera();
+    }
+  };
+
+  const startCamera = async () => {
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Camera access error:", err);
+      toast.error("Could not access camera");
+      setShowCamera(false);
+    }
+  };
+
+  const stopCamera = () => {
+    const stream = videoRef.current?.srcObject as MediaStream;
+    stream?.getTracks().forEach(track => track.stop());
+    setShowCamera(false);
+  };
+
+  const captureImage = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(videoRef.current, 0, 0);
+      const dataUri = canvas.toDataURL('image/jpeg');
+      stopCamera();
+      processScan(dataUri);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        processScan(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const processScan = async (dataUri: string) => {
     setIsScanning(true);
     setScanResult([]);
     
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock results based on common prescription names
-    const mockMedicines = ['Paracetamol', 'Metformin', 'Amoxicillin', 'Cetirizine'];
-    const results = mockMedicines.filter(() => Math.random() > 0.3);
-    
-    setScanResult(results.length > 0 ? results : ['No medicines detected']);
-    setIsScanning(false);
+    try {
+      const response = await fetch('http://localhost:5000/api/ai/scan-prescription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileDataUri: dataUri })
+      });
+      
+      const result = await response.json();
+      if (result.success && result.data.medicines) {
+        setScanResult(result.data.medicines.length > 0 ? result.data.medicines : ['No medicines detected']);
+        if (result.data.medicines.length > 0) {
+          toast.success(`${result.data.medicines.length} medicines detected!`);
+        }
+      } else {
+        toast.error('Scan failed');
+        setScanResult(['No medicines detected']);
+      }
+    } catch (error) {
+      console.error('Scan error:', error);
+      toast.error('Network error during scan');
+    } finally {
+      setIsScanning(false);
+    }
   };
+
 
   const handleQuickAdd = async (medicineName: string) => {
     try {
@@ -344,7 +417,7 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
                     className={`px-3 py-1 text-sm ${med === 'No medicines detected' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700 border-green-100'}`}
                   >
                     {med}
-                    {med !== 'No medicines detected' && (
+                    {med !== 'No medicines detected' ? (
                       <div className="flex items-center gap-1 ml-2 border-l pl-2 border-green-200">
                         <Button 
                           variant="ghost" 
@@ -365,10 +438,16 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
                           <Search className="size-3" />
                         </Button>
                       </div>
-                    )}
+                    ) : null}
                   </Badge>
                 ))}
               </div>
+              {scanResult[0] === 'No medicines detected' && (
+                <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="size-3" />
+                  Try again with better lighting and a clearer image of the prescription.
+                </div>
+              )}
               {scanResult[0] !== 'No medicines detected' && (
                 <p className="text-xs text-gray-500 mt-3 italic">
                   * Click the search icon next to medicine to find it in store.
@@ -378,6 +457,52 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
           )}
         </CardContent>
       </Card>
+
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept="image/*" 
+        className="hidden" 
+      />
+
+      {/* Camera Modal */}
+      {showCamera && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-bold text-gray-900">Capture Prescription</h3>
+              <Button variant="ghost" size="icon" onClick={stopCamera}>
+                <X className="size-5" />
+              </Button>
+            </div>
+            <div className="aspect-[3/4] bg-black relative">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="w-full h-full object-cover" 
+              />
+              <div className="absolute inset-0 border-2 border-white/50 border-dashed m-12 rounded-xl pointer-events-none">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 text-xs font-medium text-center">
+                  Align prescription within frame
+                </div>
+              </div>
+            </div>
+            <div className="p-6 flex justify-center bg-gray-50">
+              <Button 
+                onClick={captureImage}
+                size="lg"
+                className="rounded-full size-16 p-0 bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-200"
+              >
+                <div className="size-12 rounded-full border-4 border-white" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

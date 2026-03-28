@@ -43,6 +43,8 @@ export interface PatientUser {
   bloodGroup?: string;
   address?: string;
   gender?: string;
+  insuranceId?: string;
+  dob?: string | Date;
   allergies?: string[];
   chronicDiseases?: string[];
   currentMedications?: string[];
@@ -84,6 +86,8 @@ export function PatientPortal({ user, onLogout }: PatientPortalProps) {
             bloodGroup: fullPatient.blood_group,
             address: fullPatient.address,
             gender: fullPatient.gender,
+            insuranceId: fullPatient.insurance_id,
+            dob: fullPatient.date_of_birth,
             allergies: fullPatient.allergies || [],
             chronicDiseases: fullPatient.chronicDiseases || [],
             currentMedications: fullPatient.currentMedications || [],

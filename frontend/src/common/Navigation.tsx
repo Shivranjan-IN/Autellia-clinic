@@ -109,11 +109,7 @@ export function Navigation({ onNavigate, onGetStarted, cartCount = 0 }: Navigati
             >
               Login
             </Button>
-            {onGetStarted && (
-              <Button onClick={onGetStarted} className="hidden sm:flex">
-                Get Started
-              </Button>
-            )}
+
             <Button
               variant="ghost"
               size="icon"
@@ -166,17 +162,7 @@ export function Navigation({ onNavigate, onGetStarted, cartCount = 0 }: Navigati
                   >
                     Login
                   </button>
-                  {onGetStarted && (
-                    <button
-                      onClick={() => {
-                        onGetStarted();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors font-medium"
-                    >
-                      Get Started
-                    </button>
-                  )}
+
                 </div>
               </div>
 

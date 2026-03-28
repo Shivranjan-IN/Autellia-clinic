@@ -29,6 +29,8 @@ import {
 import { ClinicProfile } from './ClinicProfile';
 import { QueueManagement } from './QueueManagement';
 import { DoctorManagement } from './DoctorManagement';
+import { DoctorManagement as ClinicDoctorManagement } from '../clinic/DoctorManagement';
+import { DoctorRegistration as ClinicDoctorRegistration } from '../clinic/DoctorRegistration';
 import { StaffManagement } from './StaffManagement';
 
 // Import clinic components (these exist in the clinic folder)
@@ -66,7 +68,8 @@ type ViewType =
   | 'iot'
   | 'notifications'
   | 'security'
-  | 'settings';
+  | 'settings'
+  | 'clinic-register-doctor';
 
 export function AdminDashboard({ user }: AdminDashboardProps) {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
@@ -133,7 +136,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       case 'queue':
         return <QueueManagement userRole={user.role} />;
       case 'doctors':
+        if (user.role === 'clinic') {
+          return <ClinicDoctorManagement user={user} onNavigate={setCurrentView as any} onBack={() => setCurrentView('dashboard')} />;
+        }
         return <DoctorManagement userRole={user.role} />;
+      case 'clinic-register-doctor' as any: 
+        return <ClinicDoctorRegistration onSuccess={() => setCurrentView('doctors')} onBack={() => setCurrentView('doctors')} />;
       case 'staff':
         return <StaffManagement userRole={user.role} />;
       case 'prescriptions':

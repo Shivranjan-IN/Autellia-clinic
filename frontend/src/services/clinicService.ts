@@ -308,6 +308,20 @@ class ClinicService {
         }
     }
 
+    async updateDoctor(doctorId: number | string, doctorData: any): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clinics/doctors/${doctorId}`, {
+                method: 'PUT',
+                headers: await this.getAuthHeaders(),
+                body: JSON.stringify(doctorData),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error updating doctor:', error);
+            return false;
+        }
+    }
+
     async addDoctor(doctorId: number | string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE_URL}/api/clinics/doctors`, {

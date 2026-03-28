@@ -7,6 +7,7 @@ import { AppRouter } from "./routes/AppRouter";
 // Types are now centrally managed in common/types.ts
 
 export default function App() {
+  console.log("🚀 App.tsx: App component starting");
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-background">

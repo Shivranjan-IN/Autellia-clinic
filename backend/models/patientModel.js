@@ -12,13 +12,82 @@ class Patient {
         }
     }
 
-    static async findAll(limit = 10, offset = 0) {
+    static async findAll(limit = 10, offset = 0, doctorId = null, search = '') {
         try {
+            const where = {};
+            
+            if (doctorId) {
+                where.OR = [
+                    { doctor_id: parseInt(doctorId) },
+                    { appointments: { some: { doctor_id: parseInt(doctorId) } } }
+                ];
+            }
+
+            if (search) {
+                const searchLower = search.toLowerCase();
+                const searchConditions = [
+                    { full_name: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } },
+                    { phone: { contains: search, mode: 'insensitive' } },
+                    { patient_id: { contains: search, mode: 'insensitive' } }
+                ];
+                
+                if (where.OR) {
+                    // Combine with previous OR if it exists
+                    where.AND = [
+                        { OR: where.OR },
+                        { OR: searchConditions }
+                    ];
+                    delete where.OR;
+                } else {
+                    where.OR = searchConditions;
+                }
+            }
+
             const data = await prisma.patients.findMany({
+                where,
                 take: limit,
-                skip: offset
+                skip: offset,
+                orderBy: { created_at: 'desc' }
             });
             return data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async count(doctorId = null, search = '') {
+        try {
+            const where = {};
+            
+            if (doctorId) {
+                where.OR = [
+                    { doctor_id: parseInt(doctorId) },
+                    { appointments: { some: { doctor_id: parseInt(doctorId) } } }
+                ];
+            }
+
+            if (search) {
+                const searchConditions = [
+                    { full_name: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } },
+                    { phone: { contains: search, mode: 'insensitive' } },
+                    { patient_id: { contains: search, mode: 'insensitive' } }
+                ];
+                
+                if (where.OR) {
+                    where.AND = [
+                        { OR: where.OR },
+                        { OR: searchConditions }
+                    ];
+                    delete where.OR;
+                } else {
+                    where.OR = searchConditions;
+                }
+            }
+
+            const count = await prisma.patients.count({ where });
+            return count;
         } catch (error) {
             throw error;
         }
@@ -29,6 +98,12 @@ class Patient {
             const data = await prisma.patients.findUnique({
                 where: { patient_id: id },
                 include: {
+                    address: true,
+                    users: {
+                        include: {
+                            contact_numbers: true
+                        }
+                    },
                     appointments: true,
                     prescriptions: true,
                     patient_documents: true,
@@ -54,6 +129,12 @@ class Patient {
                     }
                 },
                 include: {
+                    address: true,
+                    users: {
+                        include: {
+                            contact_numbers: true
+                        }
+                    },
                     appointments: true,
                     prescriptions: true,
                     patient_documents: true,
@@ -71,6 +152,12 @@ class Patient {
             const data = await prisma.patients.findFirst({
                 where: { user_id: userId },
                 include: {
+                    address: true,
+                    users: {
+                        include: {
+                            contact_numbers: true
+                        }
+                    },
                     appointments: true,
                     prescriptions: true,
                     patient_documents: true,
@@ -104,12 +191,70 @@ class Patient {
 
     static async update(id, updates) {
         try {
-            const data = await prisma.patients.update({
-                where: { patient_id: id },
-                data: updates
+            const { address, phone, ...patientUpdates } = updates;
+            
+            // Handle updates in a transaction
+            return await prisma.$transaction(async (tx) => {
+                const patient = await tx.patients.findUnique({
+                    where: { patient_id: id },
+                    select: { address_id: true, user_id: true }
+                });
+
+                // Update address if provided
+                if (address !== undefined) {
+                    if (patient.address_id) {
+                        await tx.addresses.update({
+                            where: { address_id: patient.address_id },
+                            data: { address: address }
+                        });
+                    } else {
+                        const newAddress = await tx.addresses.create({
+                            data: { address: address }
+                        });
+                        patientUpdates.address_id = newAddress.address_id;
+                    }
+                }
+
+                // Update phone if provided
+                if (phone !== undefined && patient.user_id) {
+                    const existingPhone = await tx.contact_numbers.findFirst({
+                        where: { user_id: patient.user_id, is_primary: true }
+                    });
+
+                    if (existingPhone) {
+                        await tx.contact_numbers.update({
+                            where: { contact_id: existingPhone.contact_id },
+                            data: { phone_number: phone }
+                        });
+                    } else {
+                        await tx.contact_numbers.create({
+                            data: {
+                                user_id: patient.user_id,
+                                phone_number: phone,
+                                is_primary: true
+                            }
+                        });
+                    }
+                }
+
+                // Update core patient data
+                const updated = await tx.patients.update({
+                    where: { patient_id: id },
+                    data: patientUpdates,
+                    include: {
+                        address: true,
+                        users: {
+                            include: {
+                                contact_numbers: true
+                            }
+                        }
+                    }
+                });
+                
+                return updated;
             });
-            return data;
         } catch (error) {
+            console.error('Patient model update error:', error);
             throw error;
         }
     }
@@ -120,15 +265,6 @@ class Patient {
                 where: { patient_id: id }
             });
             return data;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    static async count() {
-        try {
-            const count = await prisma.patients.count();
-            return count;
         } catch (error) {
             throw error;
         }

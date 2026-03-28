@@ -1,209 +1,196 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserRole } from '../common/types';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Calendar, Download, TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Calendar, Download, TrendingUp, Users, DollarSign, Activity, Loader2 } from 'lucide-react';
+import { analyticsService, DashboardStats, ChartData } from '../services/analyticsService';
 
 interface ReportsAnalyticsProps {
     userRole: UserRole;
 }
 
-const appointmentData = [
-    { day: 'Mon', appointments: 24 },
-    { day: 'Tue', appointments: 28 },
-    { day: 'Wed', appointments: 32 },
-    { day: 'Thu', appointments: 26 },
-    { day: 'Fri', appointments: 30 },
-    { day: 'Sat', appointments: 18 },
-    { day: 'Sun', appointments: 12 },
-];
-
-const revenueData = [
-    { month: 'Jan', revenue: 45000 },
-    { month: 'Feb', revenue: 52000 },
-    { month: 'Mar', revenue: 48000 },
-    { month: 'Apr', revenue: 61000 },
-    { month: 'May', revenue: 55000 },
-    { month: 'Jun', revenue: 67000 },
-];
-
-const patientDistribution = [
-    { name: 'New Patients', value: 35, color: '#3b82f6' },
-    { name: 'Follow-up', value: 45, color: '#10b981' },
-    { name: 'Emergency', value: 15, color: '#f59e0b' },
-    { name: 'Referrals', value: 5, color: '#8b5cf6' },
-];
-
-const doctorPerformance = [
-    { doctor: 'Dr. Sarah Johnson', patients: 156, revenue: 45230, satisfaction: 4.8 },
-    { doctor: 'Dr. Michael Chen', patients: 142, revenue: 41800, satisfaction: 4.7 },
-    { doctor: 'Dr. Emily Brown', patients: 128, revenue: 38500, satisfaction: 4.9 },
-    { doctor: 'Dr. Robert Davis', patients: 134, revenue: 39200, satisfaction: 4.6 },
-];
-
 export function ReportsAnalytics({ userRole }: ReportsAnalyticsProps) {
     const [dateRange, setDateRange] = useState('week');
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [chartData, setChartData] = useState<ChartData | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const [statsRes, chartsRes] = await Promise.all([
+                    analyticsService.getStats(),
+                    analyticsService.getChartData()
+                ]);
+                setStats(statsRes);
+                setChartData(chartsRes);
+            } catch (error) {
+                console.error('Error fetching analytics data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh]">
+                <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+                <p className="text-gray-600 font-medium animate-pulse">Synchronizing performance data...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-                    <p className="text-gray-600">Comprehensive clinic performance insights</p>
+                <div className="space-y-1">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Reports & Analytics</h1>
+                    <p className="text-slate-500 font-medium">Precision performance metrics for your medical practice</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                     <select
                         value={dateRange}
                         onChange={(e) => setDateRange(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="px-6 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/30 outline-none transition-all cursor-pointer shadow-sm"
                     >
-                        <option value="week">Last Week</option>
-                        <option value="month">Last Month</option>
-                        <option value="quarter">Last Quarter</option>
-                        <option value="year">Last Year</option>
+                        <option value="week">Past 7 Days</option>
+                        <option value="month">Current Month</option>
+                        <option value="quarter">Quarterly</option>
+                        <option value="year">Annual Summary</option>
                     </select>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <button className="flex items-center gap-3 px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">
                         <Download className="w-5 h-5" />
-                        Export Report
+                        <span>Export</span>
                     </button>
                 </div>
             </div>
 
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-blue-100 rounded-lg">
-                            <Calendar className="w-6 h-6 text-blue-600" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                    { label: 'Total Appointments', value: stats?.totalAppointments || 0, icon: Calendar, color: 'blue', change: '+12%' },
+                    { label: 'Total Revenue', value: `₹${(stats?.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, color: 'emerald', change: '+18%' },
+                    { label: 'Active Patients', value: stats?.totalPatients || 0, icon: Users, color: 'indigo', change: '+8%' },
+                    { label: 'Avg Rating', value: stats?.avgRating || 0, icon: Activity, color: 'orange', change: '+0.3' }
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white rounded-[2rem] p-7 border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-xl transition-all duration-500 group">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className={`p-4 rounded-2xl bg-${stat.color}-50 text-${stat.color}-600 group-hover:scale-110 transition-transform`}>
+                                <stat.icon className="w-6 h-6" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                                {stat.change}
+                            </span>
                         </div>
-                        <div>
-                            <p className="text-2xl font-bold text-gray-900">170</p>
-                            <p className="text-sm text-gray-600">Total Appointments</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                        <TrendingUp className="w-4 h-4" />
-                        <span>+12% from last week</span>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-green-100 rounded-lg">
-                            <DollarSign className="w-6 h-6 text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-gray-900">₹67,000</p>
-                            <p className="text-sm text-gray-600">Total Revenue</p>
+                        <div className="space-y-1">
+                            <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                        <TrendingUp className="w-4 h-4" />
-                        <span>+18% from last month</span>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-purple-100 rounded-lg">
-                            <Users className="w-6 h-6 text-purple-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-gray-900">560</p>
-                            <p className="text-sm text-gray-600">Active Patients</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                        <TrendingUp className="w-4 h-4" />
-                        <span>+8% from last month</span>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-orange-100 rounded-lg">
-                            <Activity className="w-6 h-6 text-orange-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-gray-900">4.7</p>
-                            <p className="text-sm text-gray-600">Avg Satisfaction</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                        <TrendingUp className="w-4 h-4" />
-                        <span>+0.3 from last month</span>
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Daily Appointments */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <h3 className="font-semibold text-gray-900 mb-4">Daily Appointments</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={appointmentData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip />
-                            <Bar dataKey="appointments" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-bl-[100px] -mr-8 -mt-8" />
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">Consultation Volume</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={chartData?.dailyAppointments || []}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} />
+                            <Tooltip 
+                                contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', fontWeight: 800}}
+                            />
+                            <Bar dataKey="count" fill="#2563eb" radius={[6, 6, 0, 0]} barSize={24} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
 
                 {/* Revenue Trend */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <h3 className="font-semibold text-gray-900 mb-4">Revenue Trend</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={revenueData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 4 }} />
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-bl-[100px] -mr-8 -mt-8" />
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">Financial Projection</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={chartData?.revenueTrend || []}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }} />
+                            <Tooltip 
+                                contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', fontWeight: 800}}
+                            />
+                            <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={4} dot={{ fill: '#10b981', r: 5, strokeWidth: 3, stroke: '#fff' }} activeDot={{r: 8, strokeWidth: 0}} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
 
                 {/* Patient Distribution */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <h3 className="font-semibold text-gray-900 mb-4">Patient Visit Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">Patient Segmentation</h3>
+                    <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                             <Pie
-                                data={patientDistribution}
+                                data={chartData?.visitDist || []}
                                 cx="50%"
                                 cy="50%"
-                                labelLine={false}
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                outerRadius={80}
-                                fill="#8884d8"
+                                innerRadius={70}
+                                outerRadius={100}
+                                paddingAngle={5}
                                 dataKey="value"
                             >
-                                {patientDistribution.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                {(chartData?.visitDist || []).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][index % 4]} />
                                 ))}
                             </Pie>
-                            <Tooltip />
+                            <Tooltip 
+                                contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', fontWeight: 800}}
+                            />
                         </PieChart>
                     </ResponsiveContainer>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                        {(chartData?.visitDist || []).map((entry, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][i % 4]}} />
+                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{entry.name}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Doctor Performance */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200">
-                    <h3 className="font-semibold text-gray-900 mb-4">Doctor Performance</h3>
-                    <div className="space-y-3">
-                        {doctorPerformance.map((doc, idx) => (
-                            <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                    <p className="font-medium text-gray-900">{doc.doctor}</p>
-                                    <span className="text-sm text-yellow-600">★ {doc.satisfaction}</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <span className="text-gray-600">Patients:</span>
-                                        <span className="ml-2 font-medium text-gray-900">{doc.patients}</span>
+                {/* Doctor Performance Summary */}
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">Medical Team Efficiency</h3>
+                    <div className="space-y-4">
+                        {(chartData?.doctorPerf || []).map((doc, idx) => (
+                            <div key={idx} className="p-5 bg-slate-50/50 hover:bg-slate-50 rounded-[1.5rem] border border-slate-100 transition-colors">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-black">
+                                            {doc.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-slate-900 text-sm leading-none">{doc.name}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">Medical Specialist</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="text-gray-600">Revenue:</span>
-                                        <span className="ml-2 font-medium text-gray-900">₹{doc.revenue.toLocaleString()}</span>
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-50 text-yellow-600 rounded-lg text-xs font-black border border-yellow-100">
+                                        <span>★</span>
+                                        <span>{doc.rating}</span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-6 pt-3 border-t border-slate-100">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Consultations</p>
+                                        <p className="text-lg font-black text-slate-900">{doc.consultations}</p>
+                                    </div>
+                                    <div className="space-y-0.5 text-right">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue Generated</p>
+                                        <p className="text-lg font-black text-emerald-600">₹{doc.revenue.toLocaleString()}</p>
                                     </div>
                                 </div>
                             </div>

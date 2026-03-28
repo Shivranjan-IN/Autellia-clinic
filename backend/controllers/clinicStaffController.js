@@ -22,40 +22,56 @@ exports.getDoctors = async (req, res, next) => {
 exports.addDoctor = async (req, res, next) => {
     try {
         const clinicId = req.user.clinic_id;
-        const { doctor_id, name, email, mobile, specialization, qualification, experience, password, mciReg } = req.body;
+        const { doctor_id, name, email, mobile, specialization, qualification, experience, password, mciReg, gender, dob, bio } = req.body;
 
         let targetDoctorId = doctor_id;
 
         // If details are provided, register a new doctor
         if (!targetDoctorId && name && email && password) {
             // Check if user already exists
-            const existingUser = await User.findByEmail(email);
+            const existingUser = await prisma.users.findFirst({
+                where: { emails: { some: { email } } }
+            });
             if (existingUser) {
                 return ResponseHandler.badRequest(res, 'A user with this email already exists');
             }
 
             // Create User
             const hashedPassword = await bcrypt.hash(password, 10);
-            const newUser = await User.create({
-                full_name: name,
-                email,
-                mobile_number: mobile,
-                password_hash: hashedPassword,
-                role: 'doctor'
+            const newUser = await prisma.users.create({
+                data: {
+                    full_name: name,
+                    password_hash: hashedPassword,
+                    role: 'doctor',
+                    is_active: true,
+                    emails: {
+                        create: { email, is_primary: true }
+                    },
+                    contact_numbers: {
+                        create: { phone_number: mobile || '', is_primary: true }
+                    }
+                }
             });
 
             // Create Doctor Profile
-            const newDoctor = await Doctor.create({
-                full_name: name,
-                email,
-                mobile,
-                specialization: specialization || 'General Physician',
-                qualifications: qualification || 'MBBS',
-                experience_years: parseInt(experience) || 0,
-                medical_council_reg_no: mciReg || 'TEMP-' + Date.now(),
-                user_id: newUser.user_id,
-                verification_status: 'pending'
+            const newDoctor = await prisma.doctors.create({
+                data: {
+                    full_name: name,
+                    medical_council_reg_no: mciReg || 'TEMP-' + Date.now(),
+                    qualifications: qualification || 'MBBS',
+                    experience_years: parseInt(experience) || 0,
+                    bio: bio || '',
+                    gender: gender || 'Other',
+                    date_of_birth: dob ? new Date(dob) : null,
+                    user_id: newUser.user_id,
+                    verification_status: 'PENDING'
+                }
             });
+
+            // Handle Specialization
+            if (specialization) {
+                await Doctor.insertSpecializations(newDoctor.id, specialization);
+            }
 
             targetDoctorId = newDoctor.id;
         }
@@ -100,6 +116,53 @@ exports.removeDoctor = async (req, res, next) => {
         });
 
         ResponseHandler.success(res, null, 'Doctor de-linked from facility registry');
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.updateDoctor = async (req, res, next) => {
+    try {
+        const clinicId = req.user.clinic_id;
+        const { id } = req.params;
+        const updates = req.body;
+
+        // Verify mapping exists
+        const mapping = await prisma.doctor_clinic_mapping.findUnique({
+            where: {
+                doctor_id_clinic_id: {
+                    doctor_id: parseInt(id),
+                    clinic_id: clinicId
+                }
+            }
+        });
+
+        if (!mapping) {
+            return ResponseHandler.notFound(res, 'Doctor not found in your clinic roster');
+        }
+
+        const { specialization, qualification, experience, mciReg, fullName, bio, gender, dob } = updates;
+
+        const updatedDoctor = await prisma.doctors.update({
+            where: { id: parseInt(id) },
+            data: {
+                full_name: fullName,
+                qualifications: qualification,
+                experience_years: experience ? parseInt(experience) : undefined,
+                medical_council_reg_no: mciReg,
+                bio: bio,
+                gender: gender,
+                date_of_birth: dob ? new Date(dob) : undefined,
+                updated_at: new Date()
+            }
+        });
+
+        if (specialization) {
+            await prisma.doctor_specializations.deleteMany({ where: { doctor_id: parseInt(id) } });
+            await Doctor.insertSpecializations(parseInt(id), specialization);
+        }
+
+        ResponseHandler.success(res, updatedDoctor, 'Doctor profile updated successfully');
     } catch (error) {
         next(error);
     }
