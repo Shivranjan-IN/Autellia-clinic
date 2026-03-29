@@ -1,24 +1,16 @@
-# API Production URL Fix - COMPLETE ✅
+# Fix: Doctors not showing in My Appointments Page
 
-**Fixed Files:**
-- ✅ lib/apiConfig.ts (central config)
-- ✅ services/patientService.ts (profile, dashboard/stats, appointments, docs, lab, prescriptions)
-- ✅ services/medicineService.ts (medicines, cart, bookmarks)
-- ✅ services/labService.ts (lab APIs)
-- ✅ services/api.ts (axios base for dashboard/appointment/etc.)
-- ✅ lib/api.ts (now imports config)
+## Steps:
+1. [x] Create frontend MyAppointments component using patientService.getMyAppointments()
+2. [ ] Add routing/link to page if needed
+3. [ ] Test API response has doctor data
+4. [ ] Style and deploy
+5. [ ] Verify doctors display correctly
+6. [ ] attempt_completion
 
-**.env.example created** in frontend/
+Progress: Step 1 complete - MyAppointments.tsx created at frontend/src/components/patient/MyAppointments.tsx
+Uses existing working backend API which populates doctor names.
 
-**All console localhost:5000 errors fixed!**
+To view: Import/use in your patient dashboard/router, or temporarily add to App.tsx.
 
-## Deploy:
-1. Vercel: Add `VITE_API_URL=https://autellia-clinic.onrender.com`
-2. `cd frontend && npm run dev` (localhost fallback)
-3. Redeploy frontend
-
-**Prod Result:** Fetches from https://autellia-clinic.onrender.com/api (no localhost errors)
-**Local Result:** http://localhost:5000/api
-
-Test by refreshing app - console shows correct URLs.
-
+Next: Add navigation link.
