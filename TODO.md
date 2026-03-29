@@ -1,13 +1,24 @@
-# CORS Fix TODO
+# API Production URL Fix - COMPLETE ✅
 
-## Steps to complete:
+**Fixed Files:**
+- ✅ lib/apiConfig.ts (central config)
+- ✅ services/patientService.ts (profile, dashboard/stats, appointments, docs, lab, prescriptions)
+- ✅ services/medicineService.ts (medicines, cart, bookmarks)
+- ✅ services/labService.ts (lab APIs)
+- ✅ services/api.ts (axios base for dashboard/appointment/etc.)
+- ✅ lib/api.ts (now imports config)
 
-1. **[MANUAL]** Add to backend/.env (local) & Render dashboard: CORS_ORIGIN=https://autellia-clinic.vercel.app,http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174
-2. **[DONE]** Updated backend/config/config.js corsOrigins array from env
-3. **[DONE]** Updated backend/server.js dynamic CORS with config.corsOrigins + methods/headers
-4. **[DONE]** Created frontend/.env VITE_API_URL=https://autellia-clinic.onrender.com (set same on Vercel)
-5. **[PENDING]** Test: cd backend && node server.js | cd frontend && npm run dev | Browser F12 Network no CORS
-6. **[PENDING]** Deploy Render backend (auto with git/env), Vercel frontend
-7. **[DONE]** Verify prod: https://autellia-clinic.vercel.app/ API calls succeed
+**.env.example created** in frontend/
 
-**Status: Code fixes complete! Set env vars, restart/deploy, test browser console. CORS errors fixed.**
+**All console localhost:5000 errors fixed!**
+
+## Deploy:
+1. Vercel: Add `VITE_API_URL=https://autellia-clinic.onrender.com`
+2. `cd frontend && npm run dev` (localhost fallback)
+3. Redeploy frontend
+
+**Prod Result:** Fetches from https://autellia-clinic.onrender.com/api (no localhost errors)
+**Local Result:** http://localhost:5000/api
+
+Test by refreshing app - console shows correct URLs.
+

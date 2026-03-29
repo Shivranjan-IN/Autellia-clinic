@@ -1,7 +1,7 @@
 // Patient Service - API implementation for backend
 // Uses HTTP requests to backend API
 
-const API_BASE_URL = 'http://localhost:5000';
+import { API_BASE_URL } from '../lib/apiConfig';
 
 export interface Patient {
     patient_id: string;
@@ -17,10 +17,10 @@ export interface Patient {
     date_of_birth?: string | Date; // Added for profile
     email?: string;
     profile_photo_url?: string;
-    allergies?: string[];
-    chronicDiseases?: string[];
-    currentMedications?: string[];
-    prescriptions?: any[];
+    allergies?: string[] | null;
+    chronicDiseases?: string[] | null;
+    currentMedications?: string[] | null;
+    prescriptions?: any[] | null;
 }
 
 
@@ -30,7 +30,7 @@ class PatientService {
     public getFullUrl(path: string | undefined): string | undefined {
         if (!path) return undefined;
         if (path.startsWith('http')) return path; // Already absolute
-        return `${API_BASE_URL}${path}`;
+        return `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
     }
 
     private async getAuthHeaders() {
@@ -419,3 +419,4 @@ class PatientService {
 }
 
 export const patientService = new PatientService();
+

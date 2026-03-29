@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000';
+import { API_BASE_URL } from '../lib/apiConfig';
 
 class MedicineService {
     private async getAuthHeaders() {
@@ -17,6 +17,9 @@ class MedicineService {
         const response = await fetch(`${API_BASE_URL}/api/medicines?${query.toString()}`, {
             headers: await this.getAuthHeaders(),
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const result = await response.json();
         return result.data || [];
     }
@@ -25,6 +28,9 @@ class MedicineService {
         const response = await fetch(`${API_BASE_URL}/api/cart`, {
             headers: await this.getAuthHeaders(),
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const result = await response.json();
         return result.data || [];
     }
@@ -35,28 +41,40 @@ class MedicineService {
             headers: await this.getAuthHeaders(),
             body: JSON.stringify({ medicine_id: medicineId, quantity })
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return await response.json();
     }
 
     async removeFromCart(itemId: number) {
-        await fetch(`${API_BASE_URL}/api/cart/${itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/cart/${itemId}`, {
             method: 'DELETE',
             headers: await this.getAuthHeaders(),
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
     }
 
     async updateCartQuantity(itemId: number, quantity: number) {
-        await fetch(`${API_BASE_URL}/api/cart/${itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/cart/${itemId}`, {
             method: 'PUT',
             headers: await this.getAuthHeaders(),
             body: JSON.stringify({ quantity })
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
     }
 
     async getOrders() {
         const response = await fetch(`${API_BASE_URL}/api/orders`, {
             headers: await this.getAuthHeaders(),
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const result = await response.json();
         return result.data || [];
     }
@@ -67,6 +85,9 @@ class MedicineService {
             headers: await this.getAuthHeaders(),
             body: JSON.stringify(orderData)
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return await response.json();
     }
 
@@ -76,6 +97,9 @@ class MedicineService {
             headers: await this.getAuthHeaders(),
             body: JSON.stringify({ medicine_id: medicineId })
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return await response.json();
     }
 
@@ -83,6 +107,9 @@ class MedicineService {
         const response = await fetch(`${API_BASE_URL}/api/bookmarks`, {
             headers: await this.getAuthHeaders(),
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const result = await response.json();
         return result.data || [];
     }
@@ -91,6 +118,9 @@ class MedicineService {
         const response = await fetch(`${API_BASE_URL}/api/reminders`, {
             headers: await this.getAuthHeaders(),
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const result = await response.json();
         return result.data || [];
     }
@@ -101,8 +131,12 @@ class MedicineService {
             headers: await this.getAuthHeaders(),
             body: JSON.stringify(reminder)
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return await response.json();
     }
 }
 
 export const medicineService = new MedicineService();
+

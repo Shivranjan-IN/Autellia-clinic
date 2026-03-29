@@ -1,7 +1,8 @@
 // API Client - Mock implementation for frontend
 // In production, this would connect to your backend API
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from './apiConfig';
+const API_BASE_URL_FULL = `${API_BASE_URL}/api`;
 
 class API {
     private baseURL: string;
