@@ -69,26 +69,22 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-   const fetchDoctors = async () => {
-  try {
-    const response = await api.get('/doctors');
+    const fetchDoctors = async () => {
+      try {
+        // Use services/api for consistent /api prefix
+        const response = await api.get('/doctors');
+        const doctorsList = Array.isArray(response) ? response : (response.data || response.data.doctors || []);
+        setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
+      } catch (error) {
+        console.error('Failed to fetch doctors:', error);
+        setDoctors([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const doctorsList = Array.isArray(response.data)
-      ? response.data
-      : (response.data?.doctors || []);
 
-    setDoctors(doctorsList);
-  } catch (error) {
-    console.error('Failed to fetch doctors:', error);
-    setDoctors([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-useEffect(() => {
-  fetchDoctors();
-}, []);
+    fetchDoctors();
   }, []);
 
   // Fetch booked slots when doctor or date changes
