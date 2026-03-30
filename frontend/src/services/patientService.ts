@@ -264,19 +264,34 @@ class PatientService {
         }
     }
 
-    async getMyUpcomingAppointments(): Promise<any[]> {
+    async getUpcomingAppointments(patientId?: string): Promise<any[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/appointments/my-upcoming-appointments`, {
+            let url;
+            if (patientId) {
+                // Param-based (if component passes patientId)
+                url = `${API_BASE_URL}/api/appointments/upcoming/${patientId}`;
+            } else {
+                // Session-based (recommended)
+                url = `${API_BASE_URL}/api/appointments/my-upcoming-appointments`;
+            }
+            
+            console.log('📅 Fetching upcoming from:', url); // Debug log
+            
+            const response = await fetch(url, {
                 headers: await this.getAuthHeaders(),
             });
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                console.error('Upcoming appointments failed:', response.status, response.statusText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const result = await response.json();
-            return result.data || [];
+            return result.data || result.appointments || [];
         } catch (error) {
             console.error('Error fetching upcoming appointments:', error);
             return [];
         }
     }
+
 
     async getMyDocuments(): Promise<any[]> {
         try {

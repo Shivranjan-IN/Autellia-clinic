@@ -23,10 +23,14 @@ api.interceptors.request.use(
     }
 );
 
-// Add response interceptor for error handling
+// Add response interceptor for error handling with 404 logging
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (error.response?.status === 404) {
+            console.error('🚨 API 404 ERROR:', error.config?.url || 'unknown');
+            console.error('Full request config:', error.config);
+        }
         if (error.response?.status === 401) {
             // Token expired or invalid
             localStorage.removeItem('auth_token');
@@ -37,6 +41,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
 
 // Dashboard API
 export const dashboardAPI = {
