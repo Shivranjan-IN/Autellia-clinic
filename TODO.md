@@ -1,48 +1,15 @@
-# AI-Clinic Frontend API Fixes - Appointment Booking
-Status: ✅ **COMPLETED** | Priority: High | Fixed: 404 errors
+# Task Progress: Fix CORS/Doctors API Issue on Render Deployment
 
-## 📋 Steps from Approved Plan
+## Approved Plan Breakdown:
+**User confirmed production focus. Frontend uses Vite env VITE_API_URL → https://autellia-clinic.onrender.com/api**
+**Issue: /api/doctors requires JWT auth → fails unauthenticated fetches for doctor lists (booking dropdowns). Also CORS likely missing prod frontend origin.**
 
-### ✅ Step 0: Create TODO.md [COMPLETED]
+### Steps:
+- [x] **Step 1**: Add public endpoint GET /api/doctors/public (no auth) → calls existing getAllDoctors().
+- [ ] **Step 2**: Update frontend services to use /doctors/public for anonymous lists (e.g., BookAppointment.tsx).
+- [ ] **Step 3**: Document Render.com env setup: CORS_ORIGIN="https://autellia-clinic.onrender.com,http://localhost:5173".
+- [ ] **Step 4**: Create test script backend/test_doctors_public.js.
+- [ ] **Step 5**: Test & deploy → attempt_completion.
 
-### ✅ **Step 1: FIXED** BookAppointment.tsx API import [COMPLETED]
-- **File:** `frontend/src/patient/BookAppointment.tsx`
-- **Change:** `import api from \"../lib/api\";` → `import api from \"../../services/api\";`
-- **Why:** lib/api.ts missing `/api` prefix → 404s on `/appointments/booked-slots` & POST `/appointments`
-- **Result:** Now uses axios client with `/api` prefix → **Primary 404 errors resolved ✓**
-
-### ⏭️ **Step 2: Skipped** (user approved frontend fixes only)
-- MyAppointments 400 likely backend req.user.patient_id format - works with auth fallback
-- Route exists, focus on frontend 404s fixed
-
-### ✅ Step 3: Test Commands (Run these)
-```
-# Terminal 1 (Backend)
-cd backend && node server.js
-
-# Terminal 2 (Frontend)  
-npm run dev
-```
-- **Expected:** 
-  - Console: No 404 `/appointments/...` (now `/api/appointments/...`)
-  - Network: 200 `/api/appointments/booked-slots/...` (empty OK for 2026)
-  - POST `/api/appointments` → 201 if backend healthy
-
-### ✅ Step 4: **TASK COMPLETE** - All frontend API fixes applied
-
-## 🔍 Verification Checklist
-- ✅ [x] Fixed import → `/api` prefix added
-- ✅ [x] Booked slots: `/api/appointments/booked-slots/...` ✓ 
-- ✅ [x] POST booking: `/api/appointments` ✓ 
-- ✅ [x] No more \"Coordinate not found in star chart\" (404 handler)
-- ⏭️ MyAppointments 400: Backend data issue (non-blocking)
-
-## 🎉 **Next Steps for User**
-1. Run `npm run dev` → test booking flow
-2. Check browser console/Network tab → confirm no 404s
-3. Backend running → full end-to-end works
-
-**Changes:** 1 file edited, TODO tracked, zero breaking changes.
-
-**Primary errors from logs FIXED!** 🚀
+**Current: Step 1 done. Run `node backend/test_doctors_public.js` to test locally, then:**\n- Update Render CORS_ORIGIN env.\n- Frontend: use /doctors/public for anonymous lists.
 
