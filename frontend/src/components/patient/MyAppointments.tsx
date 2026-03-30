@@ -25,7 +25,7 @@ const MyAppointments: React.FC = () => {
     const fetchAppointments = async () => {
       try {
         setLoading(true);
-        const data = await patientService.getMyAppointments();
+const data = await patientService.getMyAppointments();
         setAppointments(data);
       } catch (err) {
         setError('Failed to load appointments. Check console for details.');

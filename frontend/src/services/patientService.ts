@@ -161,9 +161,13 @@ class PatientService {
         }
     }
 
-    async getMyAppointments(): Promise<any[]> {
+async getMyAppointments(patientId?: string): Promise<any[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/appointments/my-appointments`, {
+            let url = `${API_BASE_URL}/api/appointments/my-appointments`;
+            if (patientId) {
+                url += `?patientId=${encodeURIComponent(patientId)}`;
+            }
+            const response = await fetch(url, {
                 headers: await this.getAuthHeaders(),
             });
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);

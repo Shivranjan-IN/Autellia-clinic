@@ -3,10 +3,12 @@ const ResponseHandler = require('../utils/responseHandler');
 
 exports.getPatientAppointments = async (req, res, next) => {
     try {
-        const patientId = req.user.patient_id;
+let patientId = req.user?.patient_id || req.query.patientId;
         if (!patientId) {
-            return ResponseHandler.badRequest(res, 'Patient ID not found in session');
+            console.log('No patientId from session or query');
+            return ResponseHandler.badRequest(res, 'Patient ID required (session or ?patientId= param)');
         }
+        console.log(`Fetching appointments for patient: ${patientId}`);
         const appointments = await Appointment.findByPatient(patientId);
         ResponseHandler.success(res, appointments, 'Patient appointments retrieved');
     } catch (error) {
