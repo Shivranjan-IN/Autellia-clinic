@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const doctorController = require('../controllers/doctorController');
-const { protect, authorize } = require('../middleware/auth');\n\n// Public doctor list for booking (no auth required)\nrouter.get('/public', doctorController.getAllDoctors);
+const { protect, authorize } = require('../middleware/auth');
 
-// Protected routes (auth required)\nrouter.use(protect);
+// Public doctor list for booking (no auth required)
+router.get('/public', doctorController.getAllDoctors);
+
+// Protected routes (auth required)
+router.use(protect);
 
 // Routes accessible by both patients and doctors (like fetching the doctor list)
 router.get('/', doctorController.getAllDoctors);

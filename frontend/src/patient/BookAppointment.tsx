@@ -73,7 +73,9 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
       try {
         // Use services/api for consistent /api prefix
         const response = await api.get('/doctors');
-        const doctorsList = Array.isArray(response) ? response : (response.data || response.data.doctors || []);
+        // Backend returns { success: true, data: [...] }, Axios wraps as response.data
+        // So the actual array is at response.data.data
+        const doctorsList = response.data?.data || response.data?.doctors || [];
         setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
       } catch (error) {
         console.error('Failed to fetch doctors:', error);
