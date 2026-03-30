@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
+import axios from 'axios';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -22,6 +23,7 @@ import { Calendar } from '../common/ui/calendar';
 import { Tabs, TabsList, TabsTrigger } from '../common/ui/tabs';
 import { Textarea } from '../common/ui/textarea';
 import api from "../services/api";
+import { API_BASE_URL } from '../lib/apiConfig';
 import type { PatientUser } from './PatientPortal';
 
 interface BookAppointmentProps {
@@ -84,21 +86,31 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
     const fetchDoctors = async () => {
       setFetchError(null);
       try {
-        // /doctors/public — intentionally unauthenticated so patients can browse
-        const response = await api.get('/doctors/public');
-        // Axios wraps response body as response.data
-        // Backend returns { success: true, data: [...] }
+        // Use bare axios (NO auth interceptor) for /doctors/public so the
+        // patient's JWT token (which may have role=null) is never sent.
+        // This prevents a 403 "Role null is not authorized" from the backend.
+        const response = await axios.get(`${API_BASE_URL}/api/doctors/public`);
         const doctorsList =
           response.data?.data ||
           response.data?.doctors ||
           (Array.isArray(response.data) ? response.data : []);
         setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
-      } catch (error: any) {
-        const status = error?.response?.status;
-        const msg = error?.response?.data?.message || error?.message || 'Unknown error';
-        console.error('Failed to fetch doctors:', status, msg);
-        setFetchError(`Could not load doctors (${status ?? 'network error'}). Please refresh.`);
-        setDoctors([]);
+      } catch (publicErr: any) {
+        // Fallback: try the authenticated endpoint in case /public isn't deployed yet
+        try {
+          const response = await api.get('/doctors');
+          const doctorsList =
+            response.data?.data ||
+            response.data?.doctors ||
+            (Array.isArray(response.data) ? response.data : []);
+          setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
+        } catch (error: any) {
+          const status = error?.response?.status;
+          const msg = error?.response?.data?.message || error?.message || 'Unknown error';
+          console.error('Failed to fetch doctors:', status, msg);
+          setFetchError(`Could not load doctors (${status ?? 'network error'}). Please refresh.`);
+          setDoctors([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -106,6 +118,7 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
 
     fetchDoctors();
   }, []);
+
 
   // ─── Fetch booked slots when doctor or date changes ───────────────────────
   useEffect(() => {
@@ -339,7 +352,8 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
                 onClick={() => {
                   setLoading(true);
                   setFetchError(null);
-                  api.get('/doctors/public')
+                  // Use bare axios — no auth header — same as primary fetch
+                  axios.get(`${API_BASE_URL}/api/doctors/public`)
                     .then(r => {
                       const list = r.data?.data || r.data?.doctors || (Array.isArray(r.data) ? r.data : []);
                       setDoctors(Array.isArray(list) ? list : []);

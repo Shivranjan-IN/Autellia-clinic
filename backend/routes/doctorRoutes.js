@@ -3,19 +3,25 @@ const router = express.Router();
 const doctorController = require('../controllers/doctorController');
 const { protect, authorize } = require('../middleware/auth');
 
-// Public doctor list for booking (no auth required)
-router.get('/public', doctorController.getAllDoctors);
+// ── Public route: no auth required, no token validation ──────────────────────
+// Explicitly bypass any token sent by the client so that a patient with a
+// token that has role=null does NOT trigger a 403 from a downstream authorize().
+router.get('/public', (req, res, next) => {
+    // Strip the Authorization header so protect() is never tempted to validate it
+    delete req.headers.authorization;
+    next();
+}, doctorController.getAllDoctors);
 
-// Protected routes (auth required)
+// ── Protected routes (valid JWT required) ────────────────────────────────────
 router.use(protect);
 
-// Routes accessible by both patients and doctors (like fetching the doctor list)
+// Accessible by ALL authenticated roles (patient, doctor, clinic, admin, etc.)
 router.get('/', doctorController.getAllDoctors);
 
 // Clinic and Doctor Registration (Clinic Admin can register doctors)
 router.post('/register', authorize('clinic'), doctorController.registerDoctor);
 
-// Other doctor-specific routes require 'doctor' role
+// Doctor & Clinic only routes below
 router.use(authorize('doctor', 'clinic'));
 
 // Patient Management
