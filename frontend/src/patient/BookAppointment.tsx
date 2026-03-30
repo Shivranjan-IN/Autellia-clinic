@@ -71,20 +71,21 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        // Use services/api for consistent /api prefix
-        const response = await api.get('/doctors');
+        // Use the public endpoint — no auth required for listing doctors during booking
+        const response = await api.get('/doctors/public');
+        console.log('Doctors API raw response:', response.data);
         // Backend returns { success: true, data: [...] }, Axios wraps as response.data
         // So the actual array is at response.data.data
-        const doctorsList = response.data?.data || response.data?.doctors || [];
+        const doctorsList = response.data?.data || response.data?.doctors || response.data || [];
+        console.log('Parsed doctors list:', doctorsList);
         setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
-      } catch (error) {
-        console.error('Failed to fetch doctors:', error);
+      } catch (error: any) {
+        console.error('Failed to fetch doctors:', error?.response?.status, error?.response?.data || error?.message);
         setDoctors([]);
       } finally {
         setLoading(false);
       }
     };
-
 
     fetchDoctors();
   }, []);
