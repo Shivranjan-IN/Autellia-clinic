@@ -98,14 +98,18 @@ export function PatientDashboard({ patient, onNavigate }: PatientDashboardProps)
       try {
         setLoading(true);
         const [appointmentsData, statsData] = await Promise.all([
-          api.get(`/appointments/upcoming/${patient.id}`),
+          patientService.getUpcomingAppointments(patient.id),
           patientService.getDashboardStats()
         ]);
         
-        setUpcomingAppointments(appointmentsData);
+        setUpcomingAppointments({
+          count: appointmentsData.length || appointmentsData.count || 0,
+          appointments: Array.isArray(appointmentsData) ? appointmentsData : appointmentsData.appointments || []
+        });
         if (statsData) {
           setDashboardStats(statsData);
         }
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {

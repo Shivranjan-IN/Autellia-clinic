@@ -71,6 +71,7 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
+        // Use services/api for consistent /api prefix
         const response = await api.get('/doctors');
         const doctorsList = Array.isArray(response) ? response : (response.data || response.doctors || []);
         setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
@@ -81,6 +82,7 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
         setLoading(false);
       }
     };
+
 
     fetchDoctors();
   }, []);
