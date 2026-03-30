@@ -72,7 +72,7 @@ export function BookAppointment({ patient }: BookAppointmentProps) {
     const fetchDoctors = async () => {
       try {
         // Use services/api for consistent /api prefix
-const response = await api.get('/api/doctors');
+        const response = await api.get('/doctors');
         const doctorsList = Array.isArray(response) ? response : (response.data || response.doctors || []);
         setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
       } catch (error) {
