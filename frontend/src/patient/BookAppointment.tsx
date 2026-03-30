@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback } from '../common/ui/avatar';
 import { Calendar } from '../common/ui/calendar';
 import { Tabs, TabsList, TabsTrigger } from '../common/ui/tabs';
 import { Textarea } from '../common/ui/textarea';
-import api from "../lib/api";
+import api from "../../services/api";
 import type { PatientUser } from './PatientPortal';
 
 interface BookAppointmentProps {
