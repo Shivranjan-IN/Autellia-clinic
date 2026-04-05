@@ -15,6 +15,7 @@ import { PatientSidebar } from './PatientSidebar';
 import { MyAppointments } from './MyAppointments';
 import { VideoConsultation } from './VideoConsultation';
 import { MyReports } from './MyReports';
+import { PatientChatbot } from './PatientChatbot';
 import type { User } from '../common/types';
 
 export type PatientPage =
@@ -152,17 +153,21 @@ export function PatientPortal({ user, onLogout }: PatientPortalProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <PatientSidebar
-        currentPage={currentPage}
-        onPageChange={setCurrentPage}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <PatientHeader patient={patientData} onLogout={onLogout} />
-        <main className="flex-1 overflow-y-auto">
-          {renderPage()}
-        </main>
+    <>
+      <div className="flex h-screen bg-gray-50">
+        <PatientSidebar
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <PatientHeader patient={patientData} onLogout={onLogout} />
+          <main className="flex-1 overflow-y-auto">
+            {renderPage()}
+          </main>
+        </div>
       </div>
-    </div>
+      {/* Floating MedBot widget — always present on every patient page */}
+      <PatientChatbot />
+    </>
   );
 }
