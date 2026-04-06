@@ -5,6 +5,7 @@ import { z } from 'genkit';
 import { getHindiAudio } from '@/ai/flows/hindi-xray-analysis';
 import { getEnglishAudio, chatWithEnglishXrayBot } from '@/ai/flows/english-xray-analysis';
 import { chatWithXrayBot } from '@/ai/flows/hindi-xray-analysis';
+import { analyzeXray as runXrayFlow } from '@/ai/flows/xray-analysis';
 
 // ----------------------------------------------------------------------------
 // 1. Analyze Symptoms
@@ -105,6 +106,21 @@ export const analyzeDocument = async (req: Request, res: Response, next: NextFun
         (ResponseHandler as any).success(res, output, 'Medical document analyzed successfully');
     } catch (error) {
         console.error('Document analysis failed:', error);
+        next(error);
+    }
+};
+
+export const analyzeXray = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { xrayImage, language = 'en' } = req.body;
+        if (!xrayImage) {
+            return (ResponseHandler as any).badRequest(res, 'X-ray image (xrayImage) is required');
+        }
+
+        const output = await runXrayFlow({ xrayImage });
+        (ResponseHandler as any).success(res, output, 'X-ray analyzed successfully');
+    } catch (error) {
+        console.error('X-ray analysis failed:', error);
         next(error);
     }
 };

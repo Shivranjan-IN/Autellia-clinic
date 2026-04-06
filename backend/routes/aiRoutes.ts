@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { handleTTS, handleChat, analyzeSymptoms, analyzeDocument, scanPrescription, analyzeSentiment } from '../controllers/genkitController';
+import { handleTTS, handleChat, analyzeSymptoms, analyzeDocument, analyzeXray, scanPrescription, analyzeSentiment } from '../controllers/genkitController';
 
 const router = Router();
 
@@ -16,6 +16,13 @@ router.post('/analyze-symptoms', analyzeSymptoms);
  * @access  Public
  */
 router.post('/analyze-document', analyzeDocument);
+
+/**
+ * @route   POST /api/ai/analyze-xray
+ * @desc    AI-powered X-ray analysis
+ * @access  Public
+ */
+router.post('/analyze-xray', analyzeXray);
 
 /**
  * @route   POST /api/ai/scan-prescription
