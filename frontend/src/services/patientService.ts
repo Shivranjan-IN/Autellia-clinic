@@ -1,7 +1,9 @@
 // Patient Service - API implementation for backend
 // Uses HTTP requests to backend API
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL
+    ? (import.meta as any).env.VITE_API_URL.replace(/\/api$/, '')
+    : 'http://localhost:5000';
 
 export interface Patient {
     patient_id: string;

@@ -1,7 +1,9 @@
 // Doctor Service - API implementation for backend
 // Uses HTTP requests to backend API
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api$/, '')
+    : 'http://localhost:5000');
 
 export interface Doctor {
     id: number;

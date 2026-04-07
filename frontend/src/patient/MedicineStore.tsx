@@ -158,11 +158,12 @@ export function MedicineStore({ onNavigate }: { onNavigate?: (page: PatientPage)
   };
 
   const processScan = async (dataUri: string) => {
+    const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
     setIsScanning(true);
     setScanResult([]);
     
     try {
-      const response = await fetch('http://localhost:5000/api/ai/scan-prescription', {
+      const response = await fetch(`${API}/ai/scan-prescription`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileDataUri: dataUri })

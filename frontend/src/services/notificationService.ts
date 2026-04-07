@@ -18,7 +18,11 @@ export const notificationService = {
   async getNotifications(): Promise<Notification[]> {
     try {
       const response = await api.get('/notifications');
-      return response.data.data;
+      // lib/api.ts already returns response.data (the unwrapped payload)
+      // If it's an array, return it directly; if it has a .data property, use that
+      if (Array.isArray(response)) return response;
+      if (response && Array.isArray(response.data)) return response.data;
+      return [];
     } catch (error) {
       console.error('Error fetching notifications:', error);
       return [];

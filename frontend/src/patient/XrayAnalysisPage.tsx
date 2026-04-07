@@ -12,6 +12,8 @@ import {
   ArrowLeft 
 } from 'lucide-react';
 
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../common/ui/card';
 import { Button } from '../common/ui/button';
 import { Input } from '../common/ui/input';
@@ -102,7 +104,7 @@ export function XrayAnalysisPage({ user, onBack }: XrayAnalysisPageProps) {
     clearAnalysis();
 
     try {
-      const response = await fetch('http://localhost:5000/api/ai/analyze-xray', {
+      const response = await fetch(`${API_BASE_URL}/ai/analyze-xray`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xrayImage: imageData, language })
@@ -140,7 +142,7 @@ export function XrayAnalysisPage({ user, onBack }: XrayAnalysisPageProps) {
         Prescription: ${analysisResult.prescription}.
       `;
       
-      const response = await fetch('http://localhost:5000/api/ai/tts', {
+      const response = await fetch(`${API_BASE_URL}/ai/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: fullText, language })
@@ -176,7 +178,7 @@ export function XrayAnalysisPage({ user, onBack }: XrayAnalysisPageProps) {
         parts: [{ text: msg.content }],
       }));
 
-      const response = await fetch('http://localhost:5000/api/ai/chat', {
+      const response = await fetch(`${API_BASE_URL}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

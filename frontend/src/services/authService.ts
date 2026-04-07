@@ -1,6 +1,8 @@
 import { User, UserRole } from '../common/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api$/, '')
+    : 'http://localhost:5000');
 
 export async function getUserWithRole(): Promise<User | null> {
     const token = localStorage.getItem('auth_token');
