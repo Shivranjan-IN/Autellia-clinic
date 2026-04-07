@@ -1,7 +1,8 @@
 // API Client to replace Supabase - connects to backend API
 // This provides a similar interface to Supabase but uses HTTP requests
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const _rawSupabaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const API_BASE_URL = _rawSupabaseUrl.endsWith('/api') ? _rawSupabaseUrl : `${_rawSupabaseUrl}/api`;
 
 interface AuthUser {
   id: string;
@@ -59,7 +60,7 @@ class SupabaseAuth {
 class SupabaseFrom {
   constructor(private table: string) {}
 
-  async select(columns: string = '*') {
+  async select(_columns: string = '*') {
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/${this.table}`, {
@@ -163,7 +164,7 @@ class SupabaseFrom {
     return this;
   }
 
-  order(column: string, options: { ascending: boolean }) {
+  order(_column: string, _options: { ascending: boolean }) {
     // For simplicity, we'll assume backend handles ordering
     return this;
   }

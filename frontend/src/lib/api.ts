@@ -1,7 +1,10 @@
 // API Client - Mock implementation for frontend
 // In production, this would connect to your backend API
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+// Normalize API base URL — always ensure it ends with /api
+// This is defensive in case VITE_API_URL is set without the /api suffix (e.g. in Render dashboard)
+const _rawApiUrl = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const API_BASE_URL = _rawApiUrl.endsWith('/api') ? _rawApiUrl : `${_rawApiUrl}/api`;
 
 class API {
     private baseURL: string;
